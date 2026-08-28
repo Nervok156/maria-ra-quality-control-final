@@ -181,3 +181,63 @@
 .react-calendar-wrapper {
   animation: slideDown 0.2s ease-out;
 }
+@media print {
+  /* 1. Настройка формата страницы и отключение системных шапок браузера */
+  @page {
+    size: A4 landscape; /* Для ТОРГ-16 обычно используется альбомная ориентация (при необходимости замените на portrait) */
+    margin: 8mm 10mm 12mm 10mm; /* Явное указание полей отключает стандартный URL, название "Maria Ra" и время */
+    
+    /* Добавление кастомного номера страницы в нижний колонтитул */
+    @bottom-right {
+      content: "Страница " counter(page) " из " counter(pages);
+      font-size: 8pt;
+      font-family: Arial, sans-serif;
+    }
+  }
+
+  /* 2. Сброс внешних отступов и адаптация под печать */
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    background: #fff !important;
+    color: #000 !important;
+    font-size: 8pt; /* Уменьшенный шрифт для точного вхождения ТОРГ-16 */
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* 3. Ограничение ширины таблиц и запрет вылезания за границы */
+  table {
+    width: 100% !important;
+    max-width: 100% !important;
+    table-layout: fixed !important; /* Строго распределяет ширину колонок в пределах страницы */
+    border-collapse: collapse !important;
+    box-sizing: border-box !important;
+  }
+
+  /* 4. Настройка переноса текста внутри ячеек ТОРГ-16 */
+  th, td {
+    word-wrap: break-word !important;
+    word-break: break-all !important;
+    overflow-wrap: break-word !important;
+    white-space: normal !important;
+    padding: 2px 3px !important; /* Компактные внутренние отступы */
+    font-size: 7.5pt !important;
+    box-sizing: border-box !important;
+  }
+
+  /* 5. Управление разрывами страниц */
+  tr {
+    page-break-inside: avoid !important; /* Запрещает разрыв отдельной строки таблицы между страницами */
+    break-inside: avoid !important;
+  }
+
+  thead {
+    display: table-header-group; /* Повторяет шапку таблицы вверху каждой новой страницы */
+  }
+
+  tfoot {
+    display: table-footer-group;
+  }
+}
