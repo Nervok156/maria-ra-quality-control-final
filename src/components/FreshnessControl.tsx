@@ -96,6 +96,7 @@ const calculateStatusAndPercent = (expiryDateStr: string, manufactureDateStr?: s
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [hideWrittenOff, setHideWrittenOff] = useState<boolean>(true); 
 
   const [inspectorName, setInspectorName] = useState('Копыл И.А. (Практикант)');
   const [managerName, setManagerName] = useState('Иванова А.С. (Директор магазина)');
@@ -495,8 +496,10 @@ if (product.status === 'long_term') {
         matchesStatus = p.status !== 'written_off' && status === statusFilter;
       }
     }
+    
+    const matchesHideWrittenOff = !hideWrittenOff || p.status !== 'written_off';
 
-    return matchesSearch && matchesCategory && matchesStatus;
+    return matchesSearch && matchesCategory && matchesStatus && matchesHideWrittenOff;
   });
 
   const lossesByCategory: Record<ProductCategory, number> = {
@@ -616,7 +619,13 @@ if (product.status === 'long_term') {
 
               <select
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setStatusFilter(val);
+                  if (val === 'written_off') {
+                    setHideWrittenOff(false);
+                  }
+                }}
                 className="bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-gray-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-900 focus:border-green-500 rounded-lg px-3 py-2 text-xs font-semibold focus:outline-none transition-all duration-200"
               >
                 <option value="all">Все статусы</option>
@@ -627,7 +636,15 @@ if (product.status === 'long_term') {
                 <option value="written_off">Списанные</option>
                   <option value="long_term">📦 Длительное хранение</option>
               </select>
-
+              <label className="flex items-center space-x-2 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs font-semibold text-gray-700 dark:text-slate-300 cursor-pointer select-none hover:bg-gray-100 dark:hover:bg-slate-750 transition-all">
+                <input
+                  type="checkbox"
+                  checked={hideWrittenOff}
+                  onChange={(e) => setHideWrittenOff(e.target.checked)}
+                  className="w-4 h-4 text-green-600 focus:ring-green-500 border-gray-300 rounded cursor-pointer"
+                />
+                <span>Скрыть списанные</span>
+              </label>
               <button
                 onClick={() => setShowAddModal(true)}
                 className="flex items-center space-x-1.5 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-98"
