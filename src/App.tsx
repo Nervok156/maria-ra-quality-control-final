@@ -31,6 +31,10 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [showFifoModal, setShowFifoModal] = useState(false);
+const [showLayoutModal, setShowLayoutModal] = useState(false);
+const [showUtilizationModal, setShowUtilizationModal] = useState(false);
+
   const loadData = async () => {
     try {
       setLoading(true);
@@ -238,18 +242,124 @@ export default function App() {
       </main>
 
       {/* Footer */}
-      <footer className="bg-white dark:bg-slate-900 border-t border-gray-100 dark:border-slate-800 py-6 mt-12 no-print text-center text-[10px] text-gray-400 dark:text-slate-500 font-medium">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-center gap-3">
-          <p>© 2026 ООО «Розница К-1» — Торговая сеть «Мария-Ра». Единый портал контроля качества и стандартов свежести.</p>
-          <div className="flex space-x-4">
-            <span className="hover:text-green-600 dark:hover:text-green-400 cursor-pointer">Правила ротации товаров (FIFO)</span>
-            <span>•</span>
-            <span className="hover:text-green-600 dark:hover:text-green-400 cursor-pointer">Стандарты выкладки ФРОВ</span>
-            <span>•</span>
-            <span className="hover:text-green-600 dark:hover:text-green-400 cursor-pointer">Регламент утилизации</span>
-          </div>
+      <footer className="bg-white dark:bg-slate-900 border-t border-gray-100 dark:border-slate-800 py-6 mt-12 no-print text-center text-[10px] text-gray-400 dark:text-slate-500 font-medium transition-colors duration-200">
+  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-center gap-3">
+    <p>© 2026 ООО «Розница К-1» — Торговая сеть «Мария-Ра». Единый портал контроля качества и стандартов свежести.</p>
+    <div className="flex space-x-4">
+      <button
+        onClick={() => setShowFifoModal(true)}
+        className="hover:text-green-600 dark:hover:text-green-400 cursor-pointer transition-colors hover:underline"
+      >
+        Правила ротации товаров (FIFO)
+      </button>
+      <span>•</span>
+      <button
+        onClick={() => setShowLayoutModal(true)}
+        className="hover:text-green-600 dark:hover:text-green-400 cursor-pointer transition-colors hover:underline"
+      >
+        Стандарты выкладки ФРОВ
+      </button>
+      <span>•</span>
+      <button
+        onClick={() => setShowUtilizationModal(true)}
+        className="hover:text-green-600 dark:hover:text-green-400 cursor-pointer transition-colors hover:underline"
+      >
+        Регламент утилизации
+      </button>
+    </div>
+  </div>
+</footer>
+      {showFifoModal && (
+  <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in" onClick={() => setShowFifoModal(false)}>
+    <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-2xl w-full max-h-[80vh] overflow-y-auto p-6 shadow-2xl border border-gray-100 dark:border-slate-800" onClick={(e) => e.stopPropagation()}>
+      <div className="flex justify-between items-center mb-4 pb-3 border-b border-gray-100 dark:border-slate-800">
+        <h3 className="text-lg font-black text-gray-900 dark:text-slate-100">📋 Правила ротации товаров (FIFO)</h3>
+        <button onClick={() => setShowFifoModal(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-2xl">&times;</button>
+      </div>
+      <div className="space-y-4 text-sm text-gray-700 dark:text-slate-300 leading-relaxed">
+        <div className="bg-green-50 dark:bg-green-950/20 p-4 rounded-xl border border-green-100 dark:border-green-900/30">
+          <h4 className="font-black text-green-800 dark:text-green-400 mb-2">🔑 Принцип FIFO</h4>
+          <p><b>First In, First Out</b> — товары с меньшим сроком годности продаются первыми.</p>
         </div>
-      </footer>
+        <div className="bg-amber-50 dark:bg-amber-950/20 p-4 rounded-xl border border-amber-100 dark:border-amber-900/30">
+          <h4 className="font-black text-amber-800 dark:text-amber-400 mb-2">📦 Правила выкладки</h4>
+          <ul className="list-disc pl-5 space-y-1">
+            <li>Товары с истекающим сроком выкладываются <b>вперёд</b> (на уровень глаз)</li>
+            <li>Свежие партии ставятся <b>назад</b>, за старые</li>
+            <li>При каждой поставке проверять сроки годности</li>
+          </ul>
+        </div>
+        <div className="bg-red-50 dark:bg-red-950/20 p-4 rounded-xl border border-red-100 dark:border-red-900/30">
+          <h4 className="font-black text-red-800 dark:text-red-400 mb-2">⚠️ Критические точки</h4>
+          <ul className="list-disc pl-5 space-y-1">
+            <li>Ежедневный аудит молочной и хлебной продукции</li>
+            <li>При обнаружении просрочки — немедленное списание</li>
+            <li>Уценка товаров за 2 дня до истечения срока</li>
+          </ul>
+        </div>
+      </div>
+      <button onClick={() => setShowFifoModal(false)} className="mt-6 w-full py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-xl text-sm font-black transition-colors">Закрыть</button>
+    </div>
+  </div>
+)}
+
+{/* Модальное окно: Стандарты выкладки ФРОВ */}
+{showLayoutModal && (
+  <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in" onClick={() => setShowLayoutModal(false)}>
+    <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-2xl w-full max-h-[80vh] overflow-y-auto p-6 shadow-2xl border border-gray-100 dark:border-slate-800" onClick={(e) => e.stopPropagation()}>
+      <div className="flex justify-between items-center mb-4 pb-3 border-b border-gray-100 dark:border-slate-800">
+        <h3 className="text-lg font-black text-gray-900 dark:text-slate-100">📐 Стандарты выкладки ФРОВ</h3>
+        <button onClick={() => setShowLayoutModal(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-2xl">&times;</button>
+      </div>
+      <div className="space-y-4 text-sm text-gray-700 dark:text-slate-300 leading-relaxed">
+        <div className="bg-blue-50 dark:bg-blue-950/20 p-4 rounded-xl border border-blue-100 dark:border-blue-900/30">
+          <h4 className="font-black text-blue-800 dark:text-blue-400 mb-2">🧊 ФРОВ — Фрукты, Рыба, Овощи, Яйца</h4>
+          <p>Стандарты выкладки для скоропортящихся товаров.</p>
+        </div>
+        <div className="bg-emerald-50 dark:bg-emerald-950/20 p-4 rounded-xl border border-emerald-100 dark:border-emerald-900/30">
+          <h4 className="font-black text-emerald-800 dark:text-emerald-400 mb-2">📋 Требования к выкладке</h4>
+          <ul className="list-disc pl-5 space-y-1">
+            <li>Температурный режим: +2..+6 °C для молочных продуктов</li>
+            <li>Не допускать смешивания категорий на одном стеллаже</li>
+            <li>Соблюдать товарное соседство</li>
+          </ul>
+        </div>
+      </div>
+      <button onClick={() => setShowLayoutModal(false)} className="mt-6 w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-black transition-colors">Закрыть</button>
+    </div>
+  </div>
+)}
+
+{/* Модальное окно: Регламент утилизации */}
+{showUtilizationModal && (
+  <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in" onClick={() => setShowUtilizationModal(false)}>
+    <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-2xl w-full max-h-[80vh] overflow-y-auto p-6 shadow-2xl border border-gray-100 dark:border-slate-800" onClick={(e) => e.stopPropagation()}>
+      <div className="flex justify-between items-center mb-4 pb-3 border-b border-gray-100 dark:border-slate-800">
+        <h3 className="text-lg font-black text-gray-900 dark:text-slate-100">🗑️ Регламент утилизации</h3>
+        <button onClick={() => setShowUtilizationModal(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-2xl">&times;</button>
+      </div>
+      <div className="space-y-4 text-sm text-gray-700 dark:text-slate-300 leading-relaxed">
+        <div className="bg-red-50 dark:bg-red-950/20 p-4 rounded-xl border border-red-100 dark:border-red-900/30">
+          <h4 className="font-black text-red-800 dark:text-red-400 mb-2">⚖️ Оформление списания (ТОРГ-16)</h4>
+          <ul className="list-disc pl-5 space-y-1">
+            <li>Акт списания оформляется при обнаружении просрочки</li>
+            <li>Утверждается директором магазина</li>
+            <li>Передаётся в бухгалтерию для проводок</li>
+          </ul>
+        </div>
+        <div className="bg-amber-50 dark:bg-amber-950/20 p-4 rounded-xl border border-amber-100 dark:border-amber-900/30">
+          <h4 className="font-black text-amber-800 dark:text-amber-400 mb-2">🗓️ Периодичность</h4>
+          <ul className="list-disc pl-5 space-y-1">
+            <li>Ежедневная проверка сроков годности</li>
+            <li>Еженедельная инвентаризация</li>
+            <li>Ежемесячный отчёт по потерям</li>
+          </ul>
+        </div>
+      </div>
+      <button onClick={() => setShowUtilizationModal(false)} className="mt-6 w-full py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-black transition-colors">Закрыть</button>
+    </div>
+  </div>
+)}
     </div>
   );
 }
