@@ -1091,7 +1091,15 @@ export async function createReturnReceipt(
   
   const receiptNumber = await getNextReceiptNumber('store_1');
   
-  // 1. Создаём чек возврата (с отрицательной суммой)
+  // ✅ Получаем активную смену кассира
+  const { data: activeShift } = await supabase
+    .from('shifts')
+    .select('id')
+    .eq('cashier_id', cashierId)
+    .eq('is_active', true)
+    .maybeSingle();
+  
+  // 1. Создаём чек возврата (с отрицательной суммой и shift_id)
   const receipt = await createReceipt({
     receipt_number: receiptNumber,
     cashier_id: cashierId,
@@ -1101,7 +1109,8 @@ export async function createReturnReceipt(
     paid_amount: Math.abs(totalAmount), // ← положительная для отображения
     change_amount: 0,
     is_return: true,
-    return_for_id: originalReceiptId
+    return_for_id: originalReceiptId,
+    shift_id: activeShift?.id || null // ← ПРИВЯЗЫВАЕМ К СМЕНЕ
   });
   
   if (!receipt) {
@@ -1174,6 +1183,7 @@ export async function createReturnReceipt(
   
   return receipt;
 }
+
 
 // ==========================================================
 // 25. РАБОТА СО СМЕНАМИ

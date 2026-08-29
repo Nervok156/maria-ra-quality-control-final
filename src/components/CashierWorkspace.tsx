@@ -96,12 +96,33 @@ export default function CashierWorkspace({ currentUser, onDataChange }: CashierW
   // ← НОВАЯ ФУНКЦИЯ: загрузка чеков за смену
   const loadShiftReceipts = async (shiftId: string) => {
   try {
-    const receipts = await getReceiptsByShift(shiftId);
+    const { data: receipts, error } = await supabase
+      .from('receipts')
+      .select(`
+        *,
+        receipt_items(
+          *,
+          products(
+            id,
+            name,
+            barcode,
+            base_price
+          )
+        )
+      `)
+      .eq('shift_id', shiftId)
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error('❌ Ошибка получения чеков смены:', error);
+      return;
+    }
+    
     setShiftReceipts(receipts || []);
     
-    // ✅ Подсчёт количества чеков (исключая возвраты, если нужно)
-    // или можно считать все чеки, включая возвраты
-    const totalReceipts = receipts?.filter(r => !r.is_return).length || 0;
+    // ✅ Подсчёт количества чеков (только продажи, не возвраты)
+    const salesReceipts = receipts?.filter(r => !r.is_return) || [];
+    const totalReceipts = salesReceipts.length;
     const totalRevenue = receipts?.reduce((sum, r) => sum + (r.total_amount || 0), 0) || 0;
     
     console.log(`📊 Чеков за смену: ${totalReceipts}, Выручка: ${totalRevenue.toFixed(2)} ₽`);
@@ -109,6 +130,7 @@ export default function CashierWorkspace({ currentUser, onDataChange }: CashierW
     console.error('❌ Ошибка загрузки чеков смены:', error);
   }
 };
+
 
 
   // Начать смену
@@ -664,20 +686,26 @@ ${index + 1}. Чек №${receipt.receipt_number}
     {activeShift ? (
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
-          <span className="text-xs font-bold text-green-600 dark:text-green-400 flex items-center">
-            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse mr-2"></span>
-            СМЕНА АКТИВНА
-          </span>
-          <span className="text-xs text-gray-500 dark:text-slate-400 block mt-1">
-            Начало: {new Date(activeShift.start_time).toLocaleString('ru-RU')}
-          </span>
-          <span className="text-xs text-gray-500 dark:text-slate-400 block">
-            Начальный остаток: {activeShift.start_cash?.toFixed(2) || '0.00'} ₽
-          </span>
-          <span className="text-xs text-gray-500 dark:text-slate-400 block">
-            Чеков за смену: {activeShift.receipts_count || 0}
-          </span>
-        </div>
+  <span className="text-xs font-bold text-green-600 dark:text-green-400 flex items-center">
+    <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse mr-2"></span>
+    СМЕНА АКТИВНА
+  </span>
+  <span className="text-xs text-gray-500 dark:text-slate-400 block mt-1">
+    Начало: {new Date(activeShift.start_time).toLocaleString('ru-RU')}
+  </span>
+  <span className="text-xs text-gray-500 dark:text-slate-400 block">
+    Начальный остаток: {activeShift.start_cash?.toFixed(2) || '0.00'} ₽
+  </span>
+  <span className="text-xs text-gray-500 dark:text-slate-400 block">
+    Чеков за смену: {shiftReceipts?.filter(r => !r.is_return).length || 0}
+  </span>
+  <span className="text-xs text-gray-500 dark:text-slate-400 block">
+    Выручка за смену: {shiftReceipts?.reduce((sum, r) => sum + (r.total_amount || 0), 0)?.toFixed(2) || '0.00'} ₽
+  </span>
+  <span className="text-xs text-gray-500 dark:text-slate-400 block">
+    Возвратов: {shiftReceipts?.filter(r => r.is_return).length || 0}
+  </span>
+</div>
         <div className="flex gap-2 w-full sm:w-auto">
           <input
             type="number"
