@@ -218,27 +218,33 @@ export default function Login({ onLogin }: LoginProps) {
       }
       // ✅ Проверяем, работает ли сегодня сотрудник
 const today = new Date();
-const dayOfWeek = today.getDay(); // 0 - воскресенье, 6 - суббота
-const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+today.setHours(0, 0, 0, 0);
+const todayStr = today.toISOString().split('T')[0];
 
-// Получаем расписание сотрудника на сегодня
-const { data: schedule, error: scheduleError } = await supabase
-  .from('employee_schedules')
-  .select('*')
-  .eq('employee_id', employee.id)
-  .eq('day_type', isWeekend ? 'weekend' : 'weekday')
-  .maybeSingle();
+// Директор может войти в любой день
+const isDirector = employee.role_id === 'role_dir';
 
-if (scheduleError) {
-  console.error('❌ Ошибка проверки расписания:', scheduleError);
+if (!isDirector) {
+  // Проверяем расписание на сегодня по конкретной дате
+  const { data: schedule, error: scheduleError } = await supabase
+    .from('employee_schedules')
+    .select('*')
+    .eq('employee_id', employee.id)
+    .eq('schedule_date', todayStr)
+    .maybeSingle();
+
+  if (scheduleError) {
+    console.error('❌ Ошибка проверки расписания:', scheduleError);
+  }
+
+  // Если расписание не найдено или статус "Выходной"
+  if (!schedule || schedule.status === 'Выходной') {
+    setError('❌ Сегодня у вас выходной! Обратитесь к администратору.');
+    setIsLoading(false);
+    return;
+  }
 }
 
-// Если расписание не найдено или статус "Выходной"
-if (!schedule || schedule.status === 'Выходной') {
-  setError('❌ Сегодня у вас выходной! Обратитесь к администратору.');
-  setIsLoading(false);
-  return;
-}
       // ✅ Успешный вход — сбрасываем счётчик
       setLoginAttempts(0);
       localStorage.removeItem('maria_ra_blocked_until');
