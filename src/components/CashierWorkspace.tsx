@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Search, Trash2, CreditCard, 
-  Printer, Download, CheckCircle, AlertCircle
+  Printer, Download, CheckCircle, AlertCircle,
+  Lock, Unlock
 } from 'lucide-react';
 import { 
   searchProductsForSale, 
@@ -16,7 +17,8 @@ import {
   createReturnReceipt,
   getActiveShift,    
   startShift,        
-  closeShift
+  closeShift,
+  getReceiptsByShift
 } from '../api/databaseAPI';
 import { supabase } from '../lib/supabaseClient';
 import { Product, Employee } from '../types';
@@ -45,10 +47,10 @@ export default function CashierWorkspace({ currentUser, onDataChange }: CashierW
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card'>('cash');
   const [paidAmount, setPaidAmount] = useState<number>(0);
 
-  const [activeShift, setActiveShift] = useState<any>(null);
+const [activeShift, setActiveShift] = useState<any>(null);
 const [shiftStartCash, setShiftStartCash] = useState<number>(0);
 const [shiftEndCash, setShiftEndCash] = useState<number>(0);
-const [showShiftModal, setShowShiftModal] = useState(false);
+const [shiftReceipts, setShiftReceipts] = useState<any[]>([]);
 
   // ==========================================================
   // СОСТОЯНИЯ ДЛЯ ВОЗВРАТА
@@ -59,107 +61,99 @@ const [showShiftModal, setShowShiftModal] = useState(false);
   const [selectedReceiptForReturn, setSelectedReceiptForReturn] = useState<any>(null);
   const [selectedReturnItems, setSelectedReturnItems] = useState<Set<string>>(new Set());
 
-  // Загрузка активной смены
-const loadActiveShift = async () => {
-  try {
-    const shift = await getActiveShift(currentUser.id);
-    setActiveShift(shift);
-  } catch (error) {
-    console.error('❌ Ошибка загрузки смены:', error);
-  }
-};
+   //ФУНКЦИИ КОРЗИНЫ (ДОБАВИТЬ СЮДА)
+  const getTotal = () => {
+    return cart.reduce((sum: number, item: CartItem) => sum + (item.totalPrice || 0), 0);
+  };
 
-useEffect(() => {
-  loadActiveShift();
-}, []);
+  const removeFromCart = (index: number) => {
+    setCart(cart.filter((_, i) => i !== index));
+  };
 
-// Начать смену
-const handleStartShift = async () => {
-  try {
-    setLoading(true);
-    await startShift(currentUser.id, 'store_1', shiftStartCash);
-    await loadActiveShift();
-    setShowShiftModal(false);
-    setSuccessMessage('Смена успешно начата!');
-    setTimeout(() => setSuccessMessage(null), 3000);
-  } catch (error) {
-    console.error('❌ Ошибка начала смены:', error);
-    setError((error as any).message || 'Ошибка начала смены');
-    setTimeout(() => setError(null), 3000);
-  } finally {
-    setLoading(false);
-  }
-};
-
-// Закрыть смену
-const handleCloseShift = async () => {
-  if (!activeShift) return;
-  
-  try {
-    setLoading(true);
-    await closeShift(currentUser.id, shiftEndCash);
-    await loadActiveShift();
-    setSuccessMessage('Смена успешно закрыта!');
-    setTimeout(() => setSuccessMessage(null), 3000);
-  } catch (error) {
-    console.error('❌ Ошибка закрытия смены:', error);
-    setError((error as any).message || 'Ошибка закрытия смены');
-    setTimeout(() => setError(null), 3000);
-  } finally {
-    setLoading(false);
-  }
-};
-
-  // ==========================================================
-  // ЗАГРУЗКА ЧЕКОВ
-  // ==========================================================
-  const loadReceipts = async () => {
-  try {
-    const query = supabase
-      .from('receipts')
-      .select(`
-        *,
-        receipt_items(
-          *,
-          products(
-            id,
-            name,
-            barcode,
-            base_price
-          )
-        )
-      `)
-      .eq('cashier_id', currentUser.id)
-      .order('created_at', { ascending: false });
-
-    const now = new Date();
-    if (period === 'today') {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      query.gte('created_at', today.toISOString());
-    } else if (period === 'week') {
-      const weekAgo = new Date();
-      weekAgo.setDate(weekAgo.getDate() - 7);
-      query.gte('created_at', weekAgo.toISOString());
-    } else if (period === 'month') {
-      const monthAgo = new Date();
-      monthAgo.setDate(monthAgo.getDate() - 30);
-      query.gte('created_at', monthAgo.toISOString());
-    }
-
-    const { data, error } = await query;
-    
-    if (error) {
-      console.error('❌ Ошибка загрузки чеков:', error);
+  const clearCart = () => {
+    if (cart.length === 0) return;
+    if (!confirm('⚠️ Вы действительно хотите очистить текущий чек? Все добавленные товары будут удалены.')) {
       return;
     }
-    setReceipts(data || []);
-  } catch (error) {
-    console.error('❌ Ошибка загрузки чеков:', error);
-  }
-};
+    setCart([]);
+  };
+
+  // Загрузка активной смены
+ const loadActiveShift = async () => {
+    try {
+      const shift = await getActiveShift(currentUser.id);
+      setActiveShift(shift);
+      
+      // Если есть активная смена, загружаем чеки за эту смену
+      if (shift) {
+        await loadShiftReceipts(shift.id);
+      }
+    } catch (error) {
+      console.error('❌ Ошибка загрузки смены:', error);
+    }
+  };
+
+  // ← НОВАЯ ФУНКЦИЯ: загрузка чеков за смену
+  const loadShiftReceipts = async (shiftId: string) => {
+    try {
+      const receipts = await getReceiptsByShift(shiftId);
+      setShiftReceipts(receipts || []);
+    } catch (error) {
+      console.error('❌ Ошибка загрузки чеков смены:', error);
+    }
+  };
+
+  // Начать смену
+  const handleStartShift = async () => {
+    try {
+      setLoading(true);
+      const shift = await startShift(currentUser.id, 'store_1', shiftStartCash);
+      setActiveShift(shift);
+      setSuccessMessage('Смена успешно начата!');
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (error) {
+      console.error('❌ Ошибка начала смены:', error);
+      setError((error as any).message || 'Ошибка начала смены');
+      setTimeout(() => setError(null), 3000);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Закрыть смену
+  const handleCloseShift = async () => {
+    if (!activeShift) return;
+    
+    try {
+      setLoading(true);
+      await closeShift(currentUser.id, shiftEndCash);
+      setActiveShift(null);
+      setShiftReceipts([]);
+      setSuccessMessage('Смена успешно закрыта!');
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (error) {
+      console.error('❌ Ошибка закрытия смены:', error);
+      setError((error as any).message || 'Ошибка закрытия смены');
+      setTimeout(() => setError(null), 3000);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ==========================================================
+  // ЗАГРУЗКА ЧЕКОВ (общая)
+  // ==========================================================
+  const loadReceipts = async () => {
+    try {
+      const data = await getTodayReceipts(currentUser.id);
+      setReceipts(data || []);
+    } catch (error) {
+      console.error('❌ Ошибка загрузки чеков:', error);
+    }
+  };
 
   useEffect(() => {
+    loadActiveShift();
     loadReceipts();
   }, []);
 
@@ -167,6 +161,13 @@ const handleCloseShift = async () => {
   // ПОИСК ТОВАРОВ
   // ==========================================================
   const handleSearch = async () => {
+    // ✅ Проверка: смена должна быть активна
+    if (!activeShift) {
+      setError('⚠️ Сначала начните смену!');
+      setTimeout(() => setError(null), 3000);
+      return;
+    }
+
     if (!searchTerm.trim()) {
       setSearchResults([]);
       return;
@@ -186,224 +187,218 @@ const handleCloseShift = async () => {
   };
 
   // ==========================================================
-  // КОРЗИНА
+  // ДОБАВЛЕНИЕ В КОРЗИНУ
   // ==========================================================
   const addToCart = async (product: Product) => {
-  try {
-    console.log('🔄 Добавляем товар:', product.name);
-    
-    if (!product.id) {
-      setError('Ошибка: у товара нет ID');
+    // ✅ Проверка: смена должна быть активна
+    if (!activeShift) {
+      setError('⚠️ Сначала начните смену!');
       setTimeout(() => setError(null), 3000);
       return;
     }
 
-    let batches = [];
     try {
-      batches = await getAvailableBatches(product.id);
-    } catch (error) {
-      console.error('❌ Ошибка получения партий:', error);
-      const activeProducts = await getActiveProducts();
-      const foundProduct = activeProducts.find(p => p.id === product.id);
-      if (foundProduct && foundProduct.quantity > 0) {
-        batches = [{
-          id: `batch_${Date.now()}`,
-          product_id: product.id,
-          quantity: foundProduct.quantity,
-          expiration_date: foundProduct.expirationDate || new Date().toISOString().split('T')[0]
-        }];
-      }
-    }
-    
-    if (!batches || batches.length === 0) {
-      setError('Нет доступных партий этого товара на полках');
-      setTimeout(() => setError(null), 3000);
-      return;
-    }
-
-    const batch = batches[0];
-    
-    // ✅ Проверяем, есть ли уценка для этой партии
-    let unitPrice = product.price || 0;
-    
-    const { data: markdowns, error: markdownError } = await supabase
-      .from('markdown_log')
-      .select('new_price')
-      .eq('batch_id', batch.id)
-      .order('marked_at', { ascending: false })
-      .limit(1);
-    
-    if (!markdownError && markdowns && markdowns.length > 0) {
-      unitPrice = markdowns[0].new_price;
-      console.log('🏷️ Найдена уценка, цена:', unitPrice);
-    }
-
-    const existingItem = cart.find(item => item.product.id === product.id && item.batchId === batch.id);
-    
-    if (existingItem) {
-      if (existingItem.quantity >= (batch.quantity || 999)) {
-        setError('Недостаточно товара на полке');
+      console.log('🔄 Добавляем товар:', product.name);
+      
+      if (!product.id) {
+        setError('Ошибка: у товара нет ID');
         setTimeout(() => setError(null), 3000);
         return;
       }
-      setCart(cart.map(item => 
-        item.product.id === product.id && item.batchId === batch.id
-          ? { ...item, quantity: item.quantity + 1, totalPrice: (item.quantity + 1) * unitPrice }
-          : item
-      ));
-    } else {
-      setCart([...cart, {
-        product,
-        batchId: batch.id,
-        quantity: 1,
-        unitPrice: unitPrice,
-        totalPrice: unitPrice
-      }]);
+
+      let batches = [];
+      try {
+        batches = await getAvailableBatches(product.id);
+      } catch (error) {
+        console.error('❌ Ошибка получения партий:', error);
+        const activeProducts = await getActiveProducts();
+        const foundProduct = activeProducts.find(p => p.id === product.id);
+        if (foundProduct && foundProduct.quantity > 0) {
+          batches = [{
+            id: `batch_${Date.now()}`,
+            product_id: product.id,
+            quantity: foundProduct.quantity,
+            expiration_date: foundProduct.expirationDate || new Date().toISOString().split('T')[0]
+          }];
+        }
+      }
+      
+      if (!batches || batches.length === 0) {
+        setError('Нет доступных партий этого товара на полках');
+        setTimeout(() => setError(null), 3000);
+        return;
+      }
+
+      const batch = batches[0];
+      
+      let unitPrice = product.price || 0;
+      
+      const { data: markdowns, error: markdownError } = await supabase
+        .from('markdown_log')
+        .select('new_price')
+        .eq('batch_id', batch.id)
+        .order('marked_at', { ascending: false })
+        .limit(1);
+      
+      if (!markdownError && markdowns && markdowns.length > 0) {
+        unitPrice = markdowns[0].new_price;
+        console.log('🏷️ Найдена уценка, цена:', unitPrice);
+      }
+
+      const existingItem = cart.find(item => item.product.id === product.id && item.batchId === batch.id);
+      
+      if (existingItem) {
+        if (existingItem.quantity >= (batch.quantity || 999)) {
+          setError('Недостаточно товара на полке');
+          setTimeout(() => setError(null), 3000);
+          return;
+        }
+        setCart(cart.map(item => 
+          item.product.id === product.id && item.batchId === batch.id
+            ? { ...item, quantity: item.quantity + 1, totalPrice: (item.quantity + 1) * unitPrice }
+            : item
+        ));
+      } else {
+        setCart([...cart, {
+          product,
+          batchId: batch.id,
+          quantity: 1,
+          unitPrice: unitPrice,
+          totalPrice: unitPrice
+        }]);
+      }
+      
+      setSuccessMessage('Товар добавлен в чек');
+      setTimeout(() => setSuccessMessage(null), 2000);
+    } catch (error) {
+      console.error('❌ Ошибка добавления товара:', error);
+      setError('Ошибка добавления товара');
+      setTimeout(() => setError(null), 3000);
     }
-    
-    setSuccessMessage('Товар добавлен в чек');
-    setTimeout(() => setSuccessMessage(null), 2000);
-  } catch (error) {
-    console.error('❌ Ошибка добавления товара:', error);
-    setError('Ошибка добавления товара');
-    setTimeout(() => setError(null), 3000);
-  }
-};
-
-
-  const removeFromCart = (index: number) => {
-    setCart(cart.filter((_, i) => i !== index));
-  };
-
-  const clearCart = () => {
-  if (cart.length === 0) return;
-  
-  if (!confirm('⚠️ Вы действительно хотите очистить текущий чек? Все добавленные товары будут удалены.')) {
-    return;
-  }
-  
-  setCart([]);
-};
-
-  const getTotal = () => {
-    return cart.reduce((sum: number, item: CartItem) => sum + (item.totalPrice || 0), 0);
   };
 
   // ==========================================================
   // ОПЛАТА
   // ==========================================================
   const handlePayment = async () => {
-  console.log('🟢 handlePayment вызвана!');
-  console.log('📦 Корзина:', cart);
-  
-  if (cart.length === 0) {
-    setError('Корзина пуста');
-    setTimeout(() => setError(null), 3000);
-    return;
-  }
-
-  const total = getTotal();
-  console.log('💰 Итоговая сумма:', total);
-  
-  if (paymentMethod === 'cash' && paidAmount < total) {
-    setError('Внесена недостаточная сумма');
-    setTimeout(() => setError(null), 3000);
-    return;
-  }
-
-  try {
-    setLoading(true);
-    console.log('🔄 Начинаем оформление чека...');
-    
-    const receiptNumber = await getNextReceiptNumber('store_1');
-    console.log('📋 Номер чека:', receiptNumber);
-    
-    const receipt = await createReceipt({
-      receipt_number: receiptNumber,
-      cashier_id: currentUser.id,
-      store_id: 'store_1',
-      total_amount: total,
-      payment_method: paymentMethod,
-      paid_amount: paymentMethod === 'cash' ? paidAmount : total,
-      change_amount: paymentMethod === 'cash' ? paidAmount - total : 0,
-      is_return: false
-    });
-
-    if (!receipt) {
-      throw new Error('Не удалось создать чек');
+    // ✅ Проверка: смена должна быть активна
+    if (!activeShift) {
+      setError('⚠️ Сначала начните смену!');
+      setTimeout(() => setError(null), 3000);
+      return;
     }
-    console.log('✅ Чек создан:', receipt.id);
 
-    const items = [];
-    let saleSuccess = true;
+    console.log('🟢 handlePayment вызвана!');
+    console.log('📦 Корзина:', cart);
     
-    for (const item of cart) {
-      console.log(`🔄 Обрабатываем товар: ${item.product?.name}`);
+    if (cart.length === 0) {
+      setError('Корзина пуста');
+      setTimeout(() => setError(null), 3000);
+      return;
+    }
+
+    const total = getTotal();
+    console.log('💰 Итоговая сумма:', total);
+    
+    if (paymentMethod === 'cash' && paidAmount < total) {
+      setError('Внесена недостаточная сумма');
+      setTimeout(() => setError(null), 3000);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      console.log('🔄 Начинаем оформление чека...');
       
-      // Проверяем уценку
-      const { data: markdowns } = await supabase
-        .from('markdown_log')
-        .select('new_price')
-        .eq('batch_id', item.batchId)
-        .order('marked_at', { ascending: false })
-        .limit(1);
+      const receiptNumber = await getNextReceiptNumber('store_1');
+      console.log('📋 Номер чека:', receiptNumber);
       
-      const actualPrice = (markdowns && markdowns.length > 0) 
-        ? markdowns[0].new_price 
-        : item.unitPrice;
-      
-      console.log(`💰 Цена: ${actualPrice}, Кол-во: ${item.quantity}`);
-      
-      items.push({
-        receipt_id: receipt.id,
-        product_id: item.product.id,
-        batch_id: item.batchId,
-        quantity: item.quantity,
-        unit_price: actualPrice,
-        total_price: item.quantity * actualPrice
+      const receipt = await createReceipt({
+        receipt_number: receiptNumber,
+        cashier_id: currentUser.id,
+        store_id: 'store_1',
+        total_amount: total,
+        payment_method: paymentMethod,
+        paid_amount: paymentMethod === 'cash' ? paidAmount : total,
+        change_amount: paymentMethod === 'cash' ? paidAmount - total : 0,
+        is_return: false,
+        shift_id: activeShift.id // ← ДОБАВЛЯЕМ СВЯЗЬ СО СМЕНОЙ
       });
 
-      // ✅ Списываем товар
-      console.log('🔄 Вызываем recordSaleInSupabase...');
-      const success = await recordSaleInSupabase(
-        item.product.id,
-        item.quantity,
-        actualPrice,
-        item.batchId
-      );
-      
-      if (success) {
-        console.log('✅ Товар успешно списан');
-      } else {
-        console.error('❌ Ошибка списания товара');
-        saleSuccess = false;
+      if (!receipt) {
+        throw new Error('Не удалось создать чек');
       }
-    }
+      console.log('✅ Чек создан:', receipt.id);
 
-    if (!saleSuccess) {
-      console.error('❌ Ошибка при списании товаров');
-    }
+      const items = [];
+      let saleSuccess = true;
+      
+      for (const item of cart) {
+        console.log(`🔄 Обрабатываем товар: ${item.product?.name}`);
+        
+        const { data: markdowns } = await supabase
+          .from('markdown_log')
+          .select('new_price')
+          .eq('batch_id', item.batchId)
+          .order('marked_at', { ascending: false })
+          .limit(1);
+        
+        const actualPrice = (markdowns && markdowns.length > 0) 
+          ? markdowns[0].new_price 
+          : item.unitPrice;
+        
+        console.log(`💰 Цена: ${actualPrice}, Кол-во: ${item.quantity}`);
+        
+        items.push({
+          receipt_id: receipt.id,
+          product_id: item.product.id,
+          batch_id: item.batchId,
+          quantity: item.quantity,
+          unit_price: actualPrice,
+          total_price: item.quantity * actualPrice
+        });
 
-    await createReceiptItems(items);
-    console.log('✅ Позиции чека созданы');
-    
-    await loadReceipts();
-    await onDataChange();
-    
-    clearCart();
-    setPaidAmount(0);
-    
-    setSuccessMessage(`Чек №${receiptNumber} успешно оформлен!`);
-    setTimeout(() => setSuccessMessage(null), 3000);
-    
-  } catch (error) {
-    console.error('❌ Ошибка оформления чека:', error);
-    setError('Ошибка оформления чека');
-    setTimeout(() => setError(null), 3000);
-  } finally {
-    setLoading(false);
-  }
-};
+        console.log('🔄 Вызываем recordSaleInSupabase...');
+        const success = await recordSaleInSupabase(
+          item.product.id,
+          item.quantity,
+          actualPrice,
+          item.batchId
+        );
+        
+        if (success) {
+          console.log('✅ Товар успешно списан');
+        } else {
+          console.error('❌ Ошибка списания товара');
+          saleSuccess = false;
+        }
+      }
+
+      if (!saleSuccess) {
+        console.error('❌ Ошибка при списании товаров');
+      }
+
+      await createReceiptItems(items);
+      console.log('✅ Позиции чека созданы');
+      
+      await loadReceipts();
+      await loadShiftReceipts(activeShift.id); // ← ОБНОВЛЯЕМ ЧЕКИ СМЕНЫ
+      await onDataChange();
+      
+      clearCart();
+      setPaidAmount(0);
+      
+      setSuccessMessage(`Чек №${receiptNumber} успешно оформлен!`);
+      setTimeout(() => setSuccessMessage(null), 3000);
+      
+    } catch (error) {
+      console.error('❌ Ошибка оформления чека:', error);
+      setError('Ошибка оформления чека');
+      setTimeout(() => setError(null), 3000);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // ==========================================================
   // СКАЧИВАНИЕ ЧЕКОВ И ОТЧЁТОВ
@@ -746,10 +741,15 @@ const [period, setPeriod] = useState<'today' | 'week' | 'month'>('today');
       <h3 className="text-base font-black text-gray-900 dark:text-slate-100 uppercase tracking-tight">
         🧾 Кассовый терминал
       </h3>
-       {/* ==========================================================
-          БЛОК УПРАВЛЕНИЯ СМЕНОЙ - ДОБАВИТЬ ЭТУ ЧАСТЬ
+
+      {/* ==========================================================
+          БЛОК УПРАВЛЕНИЯ СМЕНОЙ
           ========================================================== */}
-      <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-xl p-4 mb-4">
+      <div className={`border rounded-xl p-4 transition-colors ${
+        activeShift 
+          ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-900/30'
+          : 'bg-gray-50 dark:bg-slate-800/50 border-gray-200 dark:border-slate-700'
+      }`}>
         {activeShift ? (
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <div>
@@ -764,7 +764,10 @@ const [period, setPeriod] = useState<'today' | 'week' | 'month'>('today');
                 Начальный остаток: {activeShift.start_cash?.toFixed(2) || '0.00'} ₽
               </span>
               <span className="text-xs text-gray-500 dark:text-slate-400 block">
-                Чеков за смену: {activeShift.receipts_count || 0}
+                Чеков за смену: {shiftReceipts?.length || 0}
+              </span>
+              <span className="text-xs text-gray-500 dark:text-slate-400 block">
+                Выручка за смену: {shiftReceipts?.reduce((sum, r) => sum + (r.total_amount || 0), 0)?.toFixed(2) || '0.00'} ₽
               </span>
             </div>
             <div className="flex gap-2 w-full sm:w-auto">
@@ -773,7 +776,7 @@ const [period, setPeriod] = useState<'today' | 'week' | 'month'>('today');
                 placeholder="Фактическая выручка ₽"
                 value={shiftEndCash || ''}
                 onChange={(e) => setShiftEndCash(parseFloat(e.target.value) || 0)}
-                className="flex-1 sm:flex-none bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-green-500"
+                className="flex-1 sm:flex-none bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-green-500"
                 step="0.01"
               />
               <button
@@ -788,7 +791,10 @@ const [period, setPeriod] = useState<'today' | 'week' | 'month'>('today');
         ) : (
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <div>
-              <span className="text-xs font-bold text-gray-400 dark:text-slate-500">СМЕНА НЕ АКТИВНА</span>
+              <span className="text-xs font-bold text-gray-400 dark:text-slate-500 flex items-center">
+                <Lock className="w-4 h-4 mr-2 text-gray-400" />
+                СМЕНА НЕ АКТИВНА
+              </span>
               <span className="text-xs text-gray-400 dark:text-slate-500 block mt-1">
                 Начните смену для работы с кассой
               </span>
@@ -799,7 +805,7 @@ const [period, setPeriod] = useState<'today' | 'week' | 'month'>('today');
                 placeholder="Начальный остаток ₽"
                 value={shiftStartCash || ''}
                 onChange={(e) => setShiftStartCash(parseFloat(e.target.value) || 0)}
-                className="flex-1 sm:flex-none bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-green-500"
+                className="flex-1 sm:flex-none bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-green-500"
                 step="0.01"
               />
               <button
@@ -812,6 +818,56 @@ const [period, setPeriod] = useState<'today' | 'week' | 'month'>('today');
             </div>
           </div>
         )}
+      </div>
+
+      {/* ==========================================================
+          БЛОК КАССЫ (заблокирован, если нет смены)
+          ========================================================== */}
+      <div className={`relative transition-all ${!activeShift ? 'opacity-50 pointer-events-none' : ''}`}>
+        {!activeShift && (
+          <div className="absolute inset-0 bg-white/60 dark:bg-slate-900/60 rounded-2xl flex items-center justify-center z-10 backdrop-blur-[2px]">
+            <div className="bg-white dark:bg-slate-800 shadow-xl rounded-2xl p-6 text-center border border-gray-200 dark:border-slate-700">
+              <Lock className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+              <p className="text-sm font-bold text-gray-600 dark:text-slate-300">
+                Касса заблокирована
+              </p>
+              <p className="text-xs text-gray-400 dark:text-slate-500 mt-1">
+                Начните смену для работы с кассой
+              </p>
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Левая колонка: Поиск и корзина */}
+          <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-xl p-5">
+            <h4 className="text-sm font-black text-gray-700 dark:text-slate-300 mb-4">
+              Добавление товара в чек
+            </h4>
+            
+            <div className="flex gap-3 mb-4">
+              <input
+                type="text"
+                placeholder="Поиск по названию или штрихкоду..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                className="flex-1 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-green-500"
+                disabled={!activeShift}
+              />
+              <button
+                onClick={handleSearch}
+                disabled={loading || !activeShift}
+                className="px-5 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-bold transition-colors disabled:opacity-50 flex items-center justify-center"
+              >
+                {loading ? (
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                ) : (
+                  <Search className="w-5 h-5" />
+                )}
+              </button>
+            </div>
+          </div>
       </div>
      {error && (
         <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/30 rounded-xl p-3 text-sm text-red-700 dark:text-red-400 flex items-center space-x-2">
@@ -826,6 +882,8 @@ const [period, setPeriod] = useState<'today' | 'week' | 'month'>('today');
           <span>{successMessage}</span>
         </div>
       )}
+    </div>
+  
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
@@ -978,14 +1036,14 @@ const [period, setPeriod] = useState<'today' | 'week' | 'month'>('today');
         
         {/* Правая колонка: История чеков */}
         <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-xl p-5">
-          <div className="flex justify-between items-center mb-4">
-            <h4 className="text-sm font-black text-gray-700 dark:text-slate-300">
-              📋 История чеков
-            </h4>
-            <span className="text-xs text-gray-400">
-              Сегодня: {receipts?.length || 0} чеков
-            </span>
-          </div>
+            <div className="flex justify-between items-center mb-4">
+              <h4 className="text-sm font-black text-gray-700 dark:text-slate-300">
+                📋 История чеков
+              </h4>
+              <span className="text-xs text-gray-400">
+                {activeShift ? `Смена: ${shiftReceipts?.length || 0} чеков` : 'Смена не активна'}
+              </span>
+            </div>
           {/* ✅ КНОПКА ВОЗВРАТА */}
           <div className="flex gap-2 mb-4">
             <button

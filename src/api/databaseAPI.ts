@@ -1290,3 +1290,28 @@ export async function getActiveShift(cashierId: string) {
   }
   return data;
 }
+// Получение чеков по ID смены
+export async function getReceiptsByShift(shiftId: string) {
+  const { data, error } = await supabase
+    .from('receipts')
+    .select(`
+      *,
+      receipt_items(
+        *,
+        products(
+          id,
+          name,
+          barcode,
+          base_price
+        )
+      )
+    `)
+    .eq('shift_id', shiftId)
+    .order('created_at', { ascending: false });
+  
+  if (error) {
+    console.error('❌ Ошибка получения чеков смены:', error);
+    throw error;
+  }
+  return data || [];
+}
