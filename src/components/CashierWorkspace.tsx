@@ -1,22 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Search, Trash2, CreditCard, 
+import {
+  Search, Trash2, CreditCard,
   Printer, Download, CheckCircle, AlertCircle,
   Lock, Unlock
 } from 'lucide-react';
-import { 
-  searchProductsForSale, 
-  getAvailableBatches, 
-  createReceipt, 
-  createReceiptItems, 
+import {
+  searchProductsForSale,
+  getAvailableBatches,
+  createReceipt,
+  createReceiptItems,
   getTodayReceipts,
   getNextReceiptNumber,
   recordSaleInSupabase,
   getActiveProducts,
   searchReceiptsForReturn,
   createReturnReceipt,
-  getActiveShift,    
-  startShift,        
+  getActiveShift,
+  startShift,
   closeShift,
   getReceiptsByShift
 } from '../api/databaseAPI';
@@ -47,10 +47,10 @@ export default function CashierWorkspace({ currentUser, onDataChange }: CashierW
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card'>('cash');
   const [paidAmount, setPaidAmount] = useState<number>(0);
 
-const [activeShift, setActiveShift] = useState<any>(null);
-const [shiftStartCash, setShiftStartCash] = useState<number>(0);
-const [shiftEndCash, setShiftEndCash] = useState<number>(0);
-const [shiftReceipts, setShiftReceipts] = useState<any[]>([]);
+  const [activeShift, setActiveShift] = useState<any>(null);
+  const [shiftStartCash, setShiftStartCash] = useState<number>(0);
+  const [shiftEndCash, setShiftEndCash] = useState<number>(0);
+  const [shiftReceipts, setShiftReceipts] = useState<any[]>([]);
 
   // ==========================================================
   // СОСТОЯНИЯ ДЛЯ ВОЗВРАТА
@@ -61,7 +61,7 @@ const [shiftReceipts, setShiftReceipts] = useState<any[]>([]);
   const [selectedReceiptForReturn, setSelectedReceiptForReturn] = useState<any>(null);
   const [selectedReturnItems, setSelectedReturnItems] = useState<Set<string>>(new Set());
 
-   //ФУНКЦИИ КОРЗИНЫ (ДОБАВИТЬ СЮДА)
+  //ФУНКЦИИ КОРЗИНЫ (ДОБАВИТЬ СЮДА)
   const getTotal = () => {
     return cart.reduce((sum: number, item: CartItem) => sum + (item.totalPrice || 0), 0);
   };
@@ -79,11 +79,11 @@ const [shiftReceipts, setShiftReceipts] = useState<any[]>([]);
   };
 
   // Загрузка активной смены
- const loadActiveShift = async () => {
+  const loadActiveShift = async () => {
     try {
       const shift = await getActiveShift(currentUser.id);
       setActiveShift(shift);
-      
+
       // Если есть активная смена, загружаем чеки за эту смену
       if (shift) {
         await loadShiftReceipts(shift.id);
@@ -95,13 +95,21 @@ const [shiftReceipts, setShiftReceipts] = useState<any[]>([]);
 
   // ← НОВАЯ ФУНКЦИЯ: загрузка чеков за смену
   const loadShiftReceipts = async (shiftId: string) => {
-    try {
-      const receipts = await getReceiptsByShift(shiftId);
-      setShiftReceipts(receipts || []);
-    } catch (error) {
-      console.error('❌ Ошибка загрузки чеков смены:', error);
-    }
-  };
+  try {
+    const receipts = await getReceiptsByShift(shiftId);
+    setShiftReceipts(receipts || []);
+    
+    // ✅ Подсчёт количества чеков (исключая возвраты, если нужно)
+    // или можно считать все чеки, включая возвраты
+    const totalReceipts = receipts?.filter(r => !r.is_return).length || 0;
+    const totalRevenue = receipts?.reduce((sum, r) => sum + (r.total_amount || 0), 0) || 0;
+    
+    console.log(`📊 Чеков за смену: ${totalReceipts}, Выручка: ${totalRevenue.toFixed(2)} ₽`);
+  } catch (error) {
+    console.error('❌ Ошибка загрузки чеков смены:', error);
+  }
+};
+
 
   // Начать смену
   const handleStartShift = async () => {
@@ -123,7 +131,7 @@ const [shiftReceipts, setShiftReceipts] = useState<any[]>([]);
   // Закрыть смену
   const handleCloseShift = async () => {
     if (!activeShift) return;
-    
+
     try {
       setLoading(true);
       await closeShift(currentUser.id, shiftEndCash);
@@ -152,20 +160,20 @@ const [shiftReceipts, setShiftReceipts] = useState<any[]>([]);
     }
   };
 
-useEffect(() => {
-  loadActiveShift();
-  loadReceipts();
-  
-  // ✅ Автообновление каждые 5 секунд
-  const interval = setInterval(() => {
-    if (activeShift) {
-      loadShiftReceipts(activeShift.id);
-    }
+  useEffect(() => {
+    loadActiveShift();
     loadReceipts();
-  }, 5000);
-  
-  return () => clearInterval(interval);
-}, []);
+
+    // ✅ Автообновление каждые 5 секунд
+    const interval = setInterval(() => {
+      if (activeShift) {
+        loadShiftReceipts(activeShift.id);
+      }
+      loadReceipts();
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   // ==========================================================
   // ПОИСК ТОВАРОВ
@@ -182,7 +190,7 @@ useEffect(() => {
       setSearchResults([]);
       return;
     }
-    
+
     try {
       setLoading(true);
       const results = await searchProductsForSale(searchTerm);
@@ -209,7 +217,7 @@ useEffect(() => {
 
     try {
       console.log('🔄 Добавляем товар:', product.name);
-      
+
       if (!product.id) {
         setError('Ошибка: у товара нет ID');
         setTimeout(() => setError(null), 3000);
@@ -232,7 +240,7 @@ useEffect(() => {
           }];
         }
       }
-      
+
       if (!batches || batches.length === 0) {
         setError('Нет доступных партий этого товара на полках');
         setTimeout(() => setError(null), 3000);
@@ -240,30 +248,30 @@ useEffect(() => {
       }
 
       const batch = batches[0];
-      
+
       let unitPrice = product.price || 0;
-      
+
       const { data: markdowns, error: markdownError } = await supabase
         .from('markdown_log')
         .select('new_price')
         .eq('batch_id', batch.id)
         .order('marked_at', { ascending: false })
         .limit(1);
-      
+
       if (!markdownError && markdowns && markdowns.length > 0) {
         unitPrice = markdowns[0].new_price;
         console.log('🏷️ Найдена уценка, цена:', unitPrice);
       }
 
       const existingItem = cart.find(item => item.product.id === product.id && item.batchId === batch.id);
-      
+
       if (existingItem) {
         if (existingItem.quantity >= (batch.quantity || 999)) {
           setError('Недостаточно товара на полке');
           setTimeout(() => setError(null), 3000);
           return;
         }
-        setCart(cart.map(item => 
+        setCart(cart.map(item =>
           item.product.id === product.id && item.batchId === batch.id
             ? { ...item, quantity: item.quantity + 1, totalPrice: (item.quantity + 1) * unitPrice }
             : item
@@ -277,7 +285,7 @@ useEffect(() => {
           totalPrice: unitPrice
         }]);
       }
-      
+
       setSuccessMessage('Товар добавлен в чек');
       setTimeout(() => setSuccessMessage(null), 2000);
     } catch (error) {
@@ -291,140 +299,140 @@ useEffect(() => {
   // ОПЛАТА
   // ==========================================================
   const handlePayment = async () => {
-  if (!activeShift) {
-    setError('⚠️ Сначала начните смену!');
-    setTimeout(() => setError(null), 3000);
-    return;
-  }
-
-  console.log('🟢 handlePayment вызвана!');
-  console.log('📦 Корзина:', cart);
-  
-  if (cart.length === 0) {
-    setError('Корзина пуста');
-    setTimeout(() => setError(null), 3000);
-    return;
-  }
-
-  const total = getTotal();
-  console.log('💰 Итоговая сумма:', total);
-  
-  if (paymentMethod === 'cash' && paidAmount < total) {
-    setError('Внесена недостаточная сумма');
-    setTimeout(() => setError(null), 3000);
-    return;
-  }
-
-  try {
-    setLoading(true);
-    console.log('🔄 Начинаем оформление чека...');
-    
-    const receiptNumber = await getNextReceiptNumber('store_1');
-    console.log('📋 Номер чека:', receiptNumber);
-    
-    const receipt = await createReceipt({
-      receipt_number: receiptNumber,
-      cashier_id: currentUser.id,
-      store_id: 'store_1',
-      total_amount: total,
-      payment_method: paymentMethod,
-      paid_amount: paymentMethod === 'cash' ? paidAmount : total,
-      change_amount: paymentMethod === 'cash' ? paidAmount - total : 0,
-      is_return: false,
-      shift_id: activeShift.id // ← связываем со сменой
-    });
-
-    if (!receipt) {
-      throw new Error('Не удалось создать чек');
+    if (!activeShift) {
+      setError('⚠️ Сначала начните смену!');
+      setTimeout(() => setError(null), 3000);
+      return;
     }
-    console.log('✅ Чек создан:', receipt.id);
 
-    const items = [];
-    let saleSuccess = true;
-    
-    for (const item of cart) {
-      console.log(`🔄 Обрабатываем товар: ${item.product?.name}`);
-      
-      const { data: markdowns } = await supabase
-        .from('markdown_log')
-        .select('new_price')
-        .eq('batch_id', item.batchId)
-        .order('marked_at', { ascending: false })
-        .limit(1);
-      
-      const actualPrice = (markdowns && markdowns.length > 0) 
-        ? markdowns[0].new_price 
-        : item.unitPrice;
-      
-      console.log(`💰 Цена: ${actualPrice}, Кол-во: ${item.quantity}`);
-      
-      items.push({
-        receipt_id: receipt.id,
-        product_id: item.product.id,
-        batch_id: item.batchId,
-        quantity: item.quantity,
-        unit_price: actualPrice,
-        total_price: item.quantity * actualPrice
+    console.log('🟢 handlePayment вызвана!');
+    console.log('📦 Корзина:', cart);
+
+    if (cart.length === 0) {
+      setError('Корзина пуста');
+      setTimeout(() => setError(null), 3000);
+      return;
+    }
+
+    const total = getTotal();
+    console.log('💰 Итоговая сумма:', total);
+
+    if (paymentMethod === 'cash' && paidAmount < total) {
+      setError('Внесена недостаточная сумма');
+      setTimeout(() => setError(null), 3000);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      console.log('🔄 Начинаем оформление чека...');
+
+      const receiptNumber = await getNextReceiptNumber('store_1');
+      console.log('📋 Номер чека:', receiptNumber);
+
+      const receipt = await createReceipt({
+        receipt_number: receiptNumber,
+        cashier_id: currentUser.id,
+        store_id: 'store_1',
+        total_amount: total,
+        payment_method: paymentMethod,
+        paid_amount: paymentMethod === 'cash' ? paidAmount : total,
+        change_amount: paymentMethod === 'cash' ? paidAmount - total : 0,
+        is_return: false,
+        shift_id: activeShift.id // ← связываем со сменой
       });
 
-      console.log('🔄 Вызываем recordSaleInSupabase...');
-      const success = await recordSaleInSupabase(
-        item.product.id,
-        item.quantity,
-        actualPrice,
-        item.batchId
-      );
-      
-      if (success) {
-        console.log('✅ Товар успешно списан');
-      } else {
-        console.error('❌ Ошибка списания товара');
-        saleSuccess = false;
+      if (!receipt) {
+        throw new Error('Не удалось создать чек');
       }
-    }
+      console.log('✅ Чек создан:', receipt.id);
 
-    if (!saleSuccess) {
-      console.error('❌ Ошибка при списании товаров');
-    }
+      const items = [];
+      let saleSuccess = true;
 
-    await createReceiptItems(items);
-    console.log('✅ Позиции чека созданы');
-    
-    // ✅ Обновляем все данные
-    await loadReceipts();
-    await loadShiftReceipts(activeShift.id); // ← обновляем чеки смены
-    await onDataChange();
-    
-    clearCart();
-    setPaidAmount(0);
-    
-    setSuccessMessage(`Чек №${receiptNumber} успешно оформлен!`);
-    setTimeout(() => setSuccessMessage(null), 3000);
-    
-  } catch (error) {
-    console.error('❌ Ошибка оформления чека:', error);
-    setError('Ошибка оформления чека');
-    setTimeout(() => setError(null), 3000);
-  } finally {
-    setLoading(false);
-  }
-};
+      for (const item of cart) {
+        console.log(`🔄 Обрабатываем товар: ${item.product?.name}`);
+
+        const { data: markdowns } = await supabase
+          .from('markdown_log')
+          .select('new_price')
+          .eq('batch_id', item.batchId)
+          .order('marked_at', { ascending: false })
+          .limit(1);
+
+        const actualPrice = (markdowns && markdowns.length > 0)
+          ? markdowns[0].new_price
+          : item.unitPrice;
+
+        console.log(`💰 Цена: ${actualPrice}, Кол-во: ${item.quantity}`);
+
+        items.push({
+          receipt_id: receipt.id,
+          product_id: item.product.id,
+          batch_id: item.batchId,
+          quantity: item.quantity,
+          unit_price: actualPrice,
+          total_price: item.quantity * actualPrice
+        });
+
+        console.log('🔄 Вызываем recordSaleInSupabase...');
+        const success = await recordSaleInSupabase(
+          item.product.id,
+          item.quantity,
+          actualPrice,
+          item.batchId
+        );
+
+        if (success) {
+          console.log('✅ Товар успешно списан');
+        } else {
+          console.error('❌ Ошибка списания товара');
+          saleSuccess = false;
+        }
+      }
+
+      if (!saleSuccess) {
+        console.error('❌ Ошибка при списании товаров');
+      }
+
+      await createReceiptItems(items);
+      console.log('✅ Позиции чека созданы');
+
+      // ✅ Обновляем все данные
+      await loadReceipts();
+      await loadShiftReceipts(activeShift.id); // ← обновляем чеки смены
+      await onDataChange();
+
+      clearCart();
+      setPaidAmount(0);
+
+      setSuccessMessage(`Чек №${receiptNumber} успешно оформлен!`);
+      setTimeout(() => setSuccessMessage(null), 3000);
+
+    } catch (error) {
+      console.error('❌ Ошибка оформления чека:', error);
+      setError('Ошибка оформления чека');
+      setTimeout(() => setError(null), 3000);
+    } finally {
+      setLoading(false);
+    }
+  };
 
 
   // ==========================================================
   // СКАЧИВАНИЕ ЧЕКОВ И ОТЧЁТОВ
   // ==========================================================
   const handleDownloadReceipt = (receipt: any) => {
-  const items = receipt.receipt_items || [];
-  const date = new Date(receipt.created_at).toLocaleString('ru-RU');
-  
-  const isReturn = receipt.is_return === true;
-  const receiptType = isReturn ? 'ЧЕК ВОЗВРАТА' : 'КАССОВЫЙ ЧЕК';
-  
-  // Считаем общее количество товаров
-  const totalItems = items.reduce((sum: number, item: any) => sum + item.quantity, 0);
-  
-  let text = `
+    const items = receipt.receipt_items || [];
+    const date = new Date(receipt.created_at).toLocaleString('ru-RU');
+
+    const isReturn = receipt.is_return === true;
+    const receiptType = isReturn ? 'ЧЕК ВОЗВРАТА' : 'КАССОВЫЙ ЧЕК';
+
+    // Считаем общее количество товаров
+    const totalItems = items.reduce((sum: number, item: any) => sum + item.quantity, 0);
+
+    let text = `
 ==================================================
            ТС «Мария-Ра» - Филиал №142
            г. Барнаул, пр. Ленина, 54
@@ -438,13 +446,13 @@ ${isReturn ? `Основание: возврат по чеку №${receipt.retu
 №  Товар                     Кол-во    Цена
 --------------------------------------------------`;
 
-  items.forEach((item: any, index: number) => {
-    const productName = item.products?.name || 'Товар';
-    const line = `${(index + 1).toString().padEnd(3)} ${productName.padEnd(25)} ${item.quantity.toString().padStart(6)} x ${item.unit_price.toFixed(2)} = ${item.total_price.toFixed(2)} ₽`;
-    text += `\n${line}`;
-  });
+    items.forEach((item: any, index: number) => {
+      const productName = item.products?.name || 'Товар';
+      const line = `${(index + 1).toString().padEnd(3)} ${productName.padEnd(25)} ${item.quantity.toString().padStart(6)} x ${item.unit_price.toFixed(2)} = ${item.total_price.toFixed(2)} ₽`;
+      text += `\n${line}`;
+    });
 
-  text += `
+    text += `
 --------------------------------------------------
 ${isReturn ? 'ВОЗВРАТ' : 'ИТОГО'}:${' '.repeat(28)} ${receipt.total_amount.toFixed(2)} ₽
 Количество товаров:${' '.repeat(20)} ${totalItems} шт.
@@ -453,23 +461,23 @@ ${isReturn ? 'ВОЗВРАТ' : 'ИТОГО'}:${' '.repeat(28)} ${receipt.total_
 ${isReturn ? '' : `Сдача:${' '.repeat(30)} ${receipt.change_amount.toFixed(2)} ₽`}
 ${isReturn ? '' : `Способ оплаты:${' '.repeat(23)} Полный расчёт`}
 ==================================================
-${isReturn ? 
-  '    Возврат принят. Средства возвращены покупателю.' : 
-  '    Благодарим за покупку!\n    Ждём вас снова в ТС «Мария-Ра»'}
+${isReturn ?
+        '    Возврат принят. Средства возвращены покупателю.' :
+        '    Благодарим за покупку!\n    Ждём вас снова в ТС «Мария-Ра»'}
 ${isReturn ? '' : '\n    Товар надлежащего качества обмену и возврату\n    не подлежит согласно Закону РФ "О защите прав\n    потребителей"'}
 ==================================================
   `;
 
-  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${isReturn ? 'возврат' : 'чек'}_${receipt.receipt_number}.txt`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-};
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${isReturn ? 'возврат' : 'чек'}_${receipt.receipt_number}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
 
 
   const handleDownloadShiftReport = () => {
@@ -485,7 +493,7 @@ ${isReturn ? '' : '\n    Товар надлежащего качества об
       const items = r.receipt_items || [];
       return sum + items.reduce((itemSum: number, item: any) => itemSum + (item.quantity || 0), 0);
     }, 0);
-    
+
     let text = `
 ==================================================
     ТС «Мария-Ра» - Филиал №142
@@ -506,7 +514,7 @@ ${isReturn ? '' : '\n    Товар надлежащего качества об
     receipts.forEach((receipt: any, index: number) => {
       const items = receipt.receipt_items || [];
       const totalQtyInReceipt = items.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0);
-      
+
       text += `
 ${index + 1}. Чек №${receipt.receipt_number}
    Время: ${new Date(receipt.created_at).toLocaleTimeString('ru-RU')}
@@ -538,217 +546,214 @@ ${index + 1}. Чек №${receipt.receipt_number}
   // ПОИСК ЧЕКОВ ДЛЯ ВОЗВРАТА
   // ==========================================================
   const handleSearchReceipts = async () => {
-  if (!searchReceiptTerm.trim()) {
-    setFoundReceipts([]);
-    return;
-  }
-  
-  try {
-    setLoading(true);
-    const results = await searchReceiptsForReturn(searchReceiptTerm);
-    
-    // ✅ Получаем список ID чеков, которые уже были возвращены
-    const { data: returns } = await supabase
-      .from('receipts')
-      .select('return_for_id')
-      .eq('is_return', true);
-    
-    const returnedIds = new Set(returns?.map((r: any) => r.return_for_id) || []);
-    
-    // ✅ Фильтруем: показываем только чеки, которые ещё не возвращали
-    const filteredResults = results.filter(receipt => !returnedIds.has(receipt.id));
-    
-    setFoundReceipts(filteredResults);
-    
-    if (filteredResults.length === 0 && results.length > 0) {
-      setError('Все найденные чеки уже были возвращены');
-      setTimeout(() => setError(null), 3000);
+    if (!searchReceiptTerm.trim()) {
+      setFoundReceipts([]);
+      return;
     }
-  } catch (error) {
-    console.error('❌ Ошибка поиска чеков:', error);
-    setError('Ошибка поиска чеков');
-    setTimeout(() => setError(null), 3000);
-  } finally {
-    setLoading(false);
-  }
-};
+
+    try {
+      setLoading(true);
+      const results = await searchReceiptsForReturn(searchReceiptTerm);
+
+      // ✅ Получаем список ID чеков, которые уже были возвращены
+      const { data: returns } = await supabase
+        .from('receipts')
+        .select('return_for_id')
+        .eq('is_return', true);
+
+      const returnedIds = new Set(returns?.map((r: any) => r.return_for_id) || []);
+
+      // ✅ Фильтруем: показываем только чеки, которые ещё не возвращали
+      const filteredResults = results.filter(receipt => !returnedIds.has(receipt.id));
+
+      setFoundReceipts(filteredResults);
+
+      if (filteredResults.length === 0 && results.length > 0) {
+        setError('Все найденные чеки уже были возвращены');
+        setTimeout(() => setError(null), 3000);
+      }
+    } catch (error) {
+      console.error('❌ Ошибка поиска чеков:', error);
+      setError('Ошибка поиска чеков');
+      setTimeout(() => setError(null), 3000);
+    } finally {
+      setLoading(false);
+    }
+  };
 
 
   // ==========================================================
   // ОФОРМЛЕНИЕ ВОЗВРАТА
   // ==========================================================
   const handleReturn = async () => {
-  if (!selectedReceiptForReturn) {
-    setError('Выберите чек для возврата');
-    setTimeout(() => setError(null), 3000);
-    return;
-  }
-  
-  // Проверяем, не был ли уже возвращён этот чек
-  const { data: existingReturns } = await supabase
-    .from('receipts')
-    .select('id')
-    .eq('return_for_id', selectedReceiptForReturn.id)
-    .eq('is_return', true);
-  
-  if (existingReturns && existingReturns.length > 0) {
-    setError('Этот чек уже был возвращён!');
-    setTimeout(() => setError(null), 3000);
-    setSelectedReceiptForReturn(null);
-    setSelectedReturnItems(new Set());
-    return;
-  }
-  
-  const items = selectedReceiptForReturn.receipt_items || [];
-  const selectedItems = items.filter((item: any) => selectedReturnItems.has(item.id));
-  
-  if (selectedItems.length === 0) {
-    setError('Выберите хотя бы один товар для возврата');
-    setTimeout(() => setError(null), 3000);
-    return;
-  }
-
-  try {
-    setLoading(true);
-    
-    const returnItems = selectedItems.map((item: any) => ({
-      receipt_item_id: item.id,
-      product_id: item.product_id,
-      batch_id: item.batch_id,
-      quantity: item.quantity,
-      unit_price: item.unit_price
-    }));
-    
-    const receipt = await createReturnReceipt(
-      selectedReceiptForReturn.id,
-      returnItems,
-      currentUser.id,
-      'cash'
-    );
-    
-    // ✅ Обновляем все данные
-    await loadReceipts();
-    if (activeShift) {
-      await loadShiftReceipts(activeShift.id); // ← обновляем чеки смены
+    if (!selectedReceiptForReturn) {
+      setError('Выберите чек для возврата');
+      setTimeout(() => setError(null), 3000);
+      return;
     }
-    await onDataChange();
-    
-    setSuccessMessage(`Возврат оформлен! Чек №${receipt.receipt_number}`);
-    setTimeout(() => setSuccessMessage(null), 3000);
-    
-    setReturnMode(false);
-    setSelectedReceiptForReturn(null);
-    setSelectedReturnItems(new Set());
-    setFoundReceipts([]);
-    setSearchReceiptTerm('');
-    
-  } catch (error) {
-    console.error('❌ Ошибка оформления возврата:', error);
-    setError('Ошибка оформления возврата');
-    setTimeout(() => setError(null), 3000);
-  } finally {
-    setLoading(false);
-  }
-};
 
-  {/* Блок смены */}
-<div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-xl p-4 mb-4">
-  {activeShift ? (
-    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-      <div>
-        <span className="text-xs font-bold text-green-600 dark:text-green-400 flex items-center">
-          <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse mr-2"></span>
-          СМЕНА АКТИВНА
-        </span>
-        <span className="text-xs text-gray-500 dark:text-slate-400 block mt-1">
-          Начало: {new Date(activeShift.start_time).toLocaleString('ru-RU')}
-        </span>
-        <span className="text-xs text-gray-500 dark:text-slate-400 block">
-          Начальный остаток: {activeShift.start_cash?.toFixed(2) || '0.00'} ₽
-        </span>
-        <span className="text-xs text-gray-500 dark:text-slate-400 block">
-          Чеков за смену: {activeShift.receipts_count || 0}
-        </span>
+    // Проверяем, не был ли уже возвращён этот чек
+    const { data: existingReturns } = await supabase
+      .from('receipts')
+      .select('id')
+      .eq('return_for_id', selectedReceiptForReturn.id)
+      .eq('is_return', true);
+
+    if (existingReturns && existingReturns.length > 0) {
+      setError('Этот чек уже был возвращён!');
+      setTimeout(() => setError(null), 3000);
+      setSelectedReceiptForReturn(null);
+      setSelectedReturnItems(new Set());
+      return;
+    }
+
+    const items = selectedReceiptForReturn.receipt_items || [];
+    const selectedItems = items.filter((item: any) => selectedReturnItems.has(item.id));
+
+    if (selectedItems.length === 0) {
+      setError('Выберите хотя бы один товар для возврата');
+      setTimeout(() => setError(null), 3000);
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const returnItems = selectedItems.map((item: any) => ({
+        receipt_item_id: item.id,
+        product_id: item.product_id,
+        batch_id: item.batch_id,
+        quantity: item.quantity,
+        unit_price: item.unit_price
+      }));
+
+      const receipt = await createReturnReceipt(
+        selectedReceiptForReturn.id,
+        returnItems,
+        currentUser.id,
+        'cash'
+      );
+
+      // ✅ Обновляем все данные
+      await loadReceipts();
+      if (activeShift) {
+        await loadShiftReceipts(activeShift.id); // ← обновляем чеки смены
+      }
+      await onDataChange();
+
+      setSuccessMessage(`Возврат оформлен! Чек №${receipt.receipt_number}`);
+      setTimeout(() => setSuccessMessage(null), 3000);
+
+      setReturnMode(false);
+      setSelectedReceiptForReturn(null);
+      setSelectedReturnItems(new Set());
+      setFoundReceipts([]);
+      setSearchReceiptTerm('');
+
+    } catch (error) {
+      console.error('❌ Ошибка оформления возврата:', error);
+      setError('Ошибка оформления возврата');
+      setTimeout(() => setError(null), 3000);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  {/* Блок смены */ }
+  <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-xl p-4 mb-4">
+    {activeShift ? (
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        <div>
+          <span className="text-xs font-bold text-green-600 dark:text-green-400 flex items-center">
+            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse mr-2"></span>
+            СМЕНА АКТИВНА
+          </span>
+          <span className="text-xs text-gray-500 dark:text-slate-400 block mt-1">
+            Начало: {new Date(activeShift.start_time).toLocaleString('ru-RU')}
+          </span>
+          <span className="text-xs text-gray-500 dark:text-slate-400 block">
+            Начальный остаток: {activeShift.start_cash?.toFixed(2) || '0.00'} ₽
+          </span>
+          <span className="text-xs text-gray-500 dark:text-slate-400 block">
+            Чеков за смену: {activeShift.receipts_count || 0}
+          </span>
+        </div>
+        <div className="flex gap-2 w-full sm:w-auto">
+          <input
+            type="number"
+            placeholder="Фактическая выручка ₽"
+            value={shiftEndCash || ''}
+            onChange={(e) => setShiftEndCash(parseFloat(e.target.value) || 0)}
+            className="flex-1 sm:flex-none bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-green-500"
+            step="0.01"
+          />
+          <button
+            onClick={handleCloseShift}
+            disabled={loading}
+            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold transition-colors disabled:opacity-50 whitespace-nowrap"
+          >
+            {loading ? '...' : 'Закрыть смену'}
+          </button>
+        </div>
       </div>
-      <div className="flex gap-2 w-full sm:w-auto">
-        <input
-          type="number"
-          placeholder="Фактическая выручка ₽"
-          value={shiftEndCash || ''}
-          onChange={(e) => setShiftEndCash(parseFloat(e.target.value) || 0)}
-          className="flex-1 sm:flex-none bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-green-500"
-          step="0.01"
-        />
-        <button
-          onClick={handleCloseShift}
-          disabled={loading}
-          className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold transition-colors disabled:opacity-50 whitespace-nowrap"
-        >
-          {loading ? '...' : 'Закрыть смену'}
-        </button>
+    ) : (
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        <div>
+          <span className="text-xs font-bold text-gray-400 dark:text-slate-500">СМЕНА НЕ АКТИВНА</span>
+          <span className="text-xs text-gray-400 dark:text-slate-500 block mt-1">
+            Начните смену для работы с кассой
+          </span>
+        </div>
+        <div className="flex gap-2 w-full sm:w-auto">
+          <input
+            type="number"
+            placeholder="Начальный остаток ₽"
+            value={shiftStartCash || ''}
+            onChange={(e) => setShiftStartCash(parseFloat(e.target.value) || 0)}
+            className="flex-1 sm:flex-none bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-green-500"
+            step="0.01"
+          />
+          <button
+            onClick={handleStartShift}
+            disabled={loading}
+            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-bold transition-colors disabled:opacity-50 whitespace-nowrap"
+          >
+            {loading ? '...' : 'Начать смену'}
+          </button>
+        </div>
       </div>
-    </div>
-  ) : (
-    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-      <div>
-        <span className="text-xs font-bold text-gray-400 dark:text-slate-500">СМЕНА НЕ АКТИВНА</span>
-        <span className="text-xs text-gray-400 dark:text-slate-500 block mt-1">
-          Начните смену для работы с кассой
-        </span>
-      </div>
-      <div className="flex gap-2 w-full sm:w-auto">
-        <input
-          type="number"
-          placeholder="Начальный остаток ₽"
-          value={shiftStartCash || ''}
-          onChange={(e) => setShiftStartCash(parseFloat(e.target.value) || 0)}
-          className="flex-1 sm:flex-none bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-green-500"
-          step="0.01"
-        />
-        <button
-          onClick={handleStartShift}
-          disabled={loading}
-          className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-bold transition-colors disabled:opacity-50 whitespace-nowrap"
-        >
-          {loading ? '...' : 'Начать смену'}
-        </button>
-      </div>
-    </div>
-  )}
-</div>
-const [period, setPeriod] = useState<'today' | 'week' | 'month'>('today');
-<div className="flex gap-1 mb-3">
-  <button
-    onClick={() => setPeriod('today')}
-    className={`px-3 py-1 rounded text-xs font-bold transition-colors ${
-      period === 'today' 
-        ? 'bg-green-600 text-white' 
+    )}
+  </div>
+  const [period, setPeriod] = useState<'today' | 'week' | 'month'>('today');
+  <div className="flex gap-1 mb-3">
+    <button
+      onClick={() => setPeriod('today')}
+      className={`px-3 py-1 rounded text-xs font-bold transition-colors ${period === 'today'
+        ? 'bg-green-600 text-white'
         : 'bg-gray-200 dark:bg-slate-800 text-gray-700 dark:text-slate-300 hover:bg-gray-300 dark:hover:bg-slate-700'
-    }`}
-  >
-    Сегодня
-  </button>
-  <button
-    onClick={() => setPeriod('week')}
-    className={`px-3 py-1 rounded text-xs font-bold transition-colors ${
-      period === 'week' 
-        ? 'bg-green-600 text-white' 
+        }`}
+    >
+      Сегодня
+    </button>
+    <button
+      onClick={() => setPeriod('week')}
+      className={`px-3 py-1 rounded text-xs font-bold transition-colors ${period === 'week'
+        ? 'bg-green-600 text-white'
         : 'bg-gray-200 dark:bg-slate-800 text-gray-700 dark:text-slate-300 hover:bg-gray-300 dark:hover:bg-slate-700'
-    }`}
-  >
-    Неделя
-  </button>
-  <button
-    onClick={() => setPeriod('month')}
-    className={`px-3 py-1 rounded text-xs font-bold transition-colors ${
-      period === 'month' 
-        ? 'bg-green-600 text-white' 
+        }`}
+    >
+      Неделя
+    </button>
+    <button
+      onClick={() => setPeriod('month')}
+      className={`px-3 py-1 rounded text-xs font-bold transition-colors ${period === 'month'
+        ? 'bg-green-600 text-white'
         : 'bg-gray-200 dark:bg-slate-800 text-gray-700 dark:text-slate-300 hover:bg-gray-300 dark:hover:bg-slate-700'
-    }`}
-  >
-    Месяц
-  </button>
-</div>
+        }`}
+    >
+      Месяц
+    </button>
+  </div>
   // ==========================================================
   // JSX
   // ==========================================================
@@ -760,11 +765,10 @@ const [period, setPeriod] = useState<'today' | 'week' | 'month'>('today');
       {/* ==========================================================
           БЛОК УПРАВЛЕНИЯ СМЕНОЙ
           ========================================================== */}
-      <div className={`border rounded-xl p-4 transition-colors ${
-        activeShift 
-          ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-900/30'
-          : 'bg-gray-50 dark:bg-slate-800/50 border-gray-200 dark:border-slate-700'
-      }`}>
+      <div className={`border rounded-xl p-4 transition-colors ${activeShift
+        ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-900/30'
+        : 'bg-gray-50 dark:bg-slate-800/50 border-gray-200 dark:border-slate-700'
+        }`}>
         {activeShift ? (
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <div>
@@ -782,7 +786,11 @@ const [period, setPeriod] = useState<'today' | 'week' | 'month'>('today');
                 Чеков за смену: {shiftReceipts?.length || 0}
               </span>
               <span className="text-xs text-gray-500 dark:text-slate-400 block">
-                Выручка за смену: {shiftReceipts?.reduce((sum, r) => sum + (r.total_amount || 0), 0)?.toFixed(2) || '0.00'} ₽
+                Выручка за смену: {
+                  shiftReceipts
+                    ?.reduce((sum, r) => sum + (r.total_amount || 0), 0)
+                    ?.toFixed(2) || '0.00'
+                } ₽
               </span>
             </div>
             <div className="flex gap-2 w-full sm:w-auto">
@@ -860,7 +868,7 @@ const [period, setPeriod] = useState<'today' | 'week' | 'month'>('today');
             <h4 className="text-sm font-black text-gray-700 dark:text-slate-300 mb-4">
               Добавление товара в чек
             </h4>
-            
+
             <div className="flex gap-3 mb-4">
               <input
                 type="text"
@@ -883,7 +891,7 @@ const [period, setPeriod] = useState<'today' | 'week' | 'month'>('today');
                 )}
               </button>
             </div>
-            
+
             {/* Результаты поиска */}
             {searchResults.length > 0 && (
               <div className="space-y-1 max-h-48 overflow-y-auto mb-4">
@@ -911,7 +919,7 @@ const [period, setPeriod] = useState<'today' | 'week' | 'month'>('today');
                 ))}
               </div>
             )}
-            
+
             {/* Корзина */}
             <div className="border-t border-gray-100 dark:border-slate-800 pt-4">
               <div className="flex justify-between items-center mb-3">
@@ -922,7 +930,7 @@ const [period, setPeriod] = useState<'today' | 'week' | 'month'>('today');
                   {cart.length} позиций
                 </span>
               </div>
-              
+
               <div className="space-y-1 max-h-48 overflow-y-auto">
                 {cart.length === 0 ? (
                   <div className="text-center py-6 text-gray-400 text-sm">
@@ -951,7 +959,7 @@ const [period, setPeriod] = useState<'today' | 'week' | 'month'>('today');
                   ))
                 )}
               </div>
-              
+
               <div className="flex justify-between items-center mt-3 pt-3 border-t border-gray-200 dark:border-slate-700">
                 <span className="text-base font-black text-gray-900 dark:text-slate-100">ИТОГО:</span>
                 <span className="text-base font-black text-green-600 dark:text-green-400">
@@ -959,7 +967,7 @@ const [period, setPeriod] = useState<'today' | 'week' | 'month'>('today');
                 </span>
               </div>
             </div>
-            
+
             {/* Кнопки оплаты */}
             <div className="flex gap-3 mt-4 flex-wrap">
               <select
@@ -971,7 +979,7 @@ const [period, setPeriod] = useState<'today' | 'week' | 'month'>('today');
                 <option value="cash">Наличные</option>
                 <option value="card">Карта</option>
               </select>
-              
+
               {paymentMethod === 'cash' && (
                 <input
                   type="number"
@@ -983,7 +991,7 @@ const [period, setPeriod] = useState<'today' | 'week' | 'month'>('today');
                   disabled={!activeShift}
                 />
               )}
-              
+
               <button
                 onClick={handlePayment}
                 disabled={loading || cart.length === 0 || !activeShift}
@@ -999,7 +1007,7 @@ const [period, setPeriod] = useState<'today' | 'week' | 'month'>('today');
                 )}
               </button>
             </div>
-            
+
             <button
               onClick={clearCart}
               disabled={cart.length === 0 || !activeShift}
@@ -1008,7 +1016,7 @@ const [period, setPeriod] = useState<'today' | 'week' | 'month'>('today');
               Очистить чек
             </button>
           </div>
-          
+
           {/* Правая колонка: История чеков */}
           <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-xl p-5">
             <div className="flex justify-between items-center mb-4">
@@ -1019,7 +1027,7 @@ const [period, setPeriod] = useState<'today' | 'week' | 'month'>('today');
                 {activeShift ? `Смена: ${shiftReceipts?.length || 0} чеков` : 'Смена не активна'}
               </span>
             </div>
-            
+
             {/* Кнопка возврата */}
             <div className="flex gap-2 mb-4">
               <button
@@ -1032,23 +1040,22 @@ const [period, setPeriod] = useState<'today' | 'week' | 'month'>('today');
                   }
                 }}
                 disabled={!activeShift}
-                className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${
-                  returnMode 
-                    ? 'bg-red-600 hover:bg-red-700 text-white'
-                    : 'bg-gray-200 dark:bg-slate-800 hover:bg-gray-300 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-300'
-                } ${!activeShift ? 'opacity-50 cursor-not-allowed' : ''}`}
+                className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${returnMode
+                  ? 'bg-red-600 hover:bg-red-700 text-white'
+                  : 'bg-gray-200 dark:bg-slate-800 hover:bg-gray-300 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-300'
+                  } ${!activeShift ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 {returnMode ? '❌ Отмена возврата' : '🔄 Возврат товара'}
               </button>
             </div>
-            
+
             {/* Блок возврата */}
             {returnMode && activeShift && (
               <div className="bg-gray-50 dark:bg-slate-800/50 rounded-xl p-4 mb-4 border border-gray-200 dark:border-slate-700">
                 <h4 className="text-sm font-black text-gray-700 dark:text-slate-300 mb-3">
                   🔄 Поиск чека для возврата
                 </h4>
-                
+
                 <div className="flex gap-2 mb-3">
                   <input
                     type="text"
@@ -1066,90 +1073,89 @@ const [period, setPeriod] = useState<'today' | 'week' | 'month'>('today');
                     {loading ? '...' : 'Найти'}
                   </button>
                 </div>
-              
-              {foundReceipts.length > 0 && (
-                <div className="space-y-2 max-h-60 overflow-y-auto">
-                  {foundReceipts.map((receipt) => (
-                    <div
-                      key={receipt.id}
-                      onClick={() => {
-                        setSelectedReceiptForReturn(receipt);
-                        setSelectedReturnItems(new Set(
-                          (receipt.receipt_items || []).map((item: any) => item.id)
-                        ));
-                      }}
-                      className={`bg-white dark:bg-slate-900 border-2 rounded-lg p-3 cursor-pointer transition-colors ${
-                        selectedReceiptForReturn?.id === receipt.id
+
+                {foundReceipts.length > 0 && (
+                  <div className="space-y-2 max-h-60 overflow-y-auto">
+                    {foundReceipts.map((receipt) => (
+                      <div
+                        key={receipt.id}
+                        onClick={() => {
+                          setSelectedReceiptForReturn(receipt);
+                          setSelectedReturnItems(new Set(
+                            (receipt.receipt_items || []).map((item: any) => item.id)
+                          ));
+                        }}
+                        className={`bg-white dark:bg-slate-900 border-2 rounded-lg p-3 cursor-pointer transition-colors ${selectedReceiptForReturn?.id === receipt.id
                           ? 'border-green-500 bg-green-50 dark:bg-green-950/10'
                           : 'border-gray-200 dark:border-slate-700 hover:border-green-300'
-                      }`}
-                    >
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <span className="text-sm font-bold text-gray-900 dark:text-slate-100">
-                            Чек №{receipt.receipt_number}
-                          </span>
-                          <span className="text-xs text-gray-400 block">
-                            {new Date(receipt.created_at).toLocaleString('ru-RU')}
+                          }`}
+                      >
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <span className="text-sm font-bold text-gray-900 dark:text-slate-100">
+                              Чек №{receipt.receipt_number}
+                            </span>
+                            <span className="text-xs text-gray-400 block">
+                              {new Date(receipt.created_at).toLocaleString('ru-RU')}
+                            </span>
+                          </div>
+                          <span className="text-sm font-bold text-green-600 dark:text-green-400">
+                            {receipt.total_amount?.toFixed(2) || '0.00'} ₽
                           </span>
                         </div>
-                        <span className="text-sm font-bold text-green-600 dark:text-green-400">
-                          {receipt.total_amount?.toFixed(2) || '0.00'} ₽
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              
-              {selectedReceiptForReturn && (
-                <div className="mt-4 pt-4 border-t border-gray-200 dark:border-slate-700">
-                  <h5 className="text-xs font-bold text-gray-700 dark:text-slate-300 mb-2">
-                    Выберите товары для возврата:
-                  </h5>
-                  <div className="space-y-1 max-h-40 overflow-y-auto">
-                    {(selectedReceiptForReturn.receipt_items || []).map((item: any) => (
-                      <div
-                        key={item.id}
-                        className="flex items-center space-x-3 p-2 bg-white dark:bg-slate-900 rounded-lg border border-gray-100 dark:border-slate-800"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedReturnItems.has(item.id)}
-                          onChange={() => {
-                            const newSet = new Set(selectedReturnItems);
-                            if (newSet.has(item.id)) {
-                              newSet.delete(item.id);
-                            } else {
-                              newSet.add(item.id);
-                            }
-                            setSelectedReturnItems(newSet);
-                          }}
-                          className="w-4 h-4 text-green-600 rounded cursor-pointer"
-                        />
-                        <span className="text-sm flex-1 text-gray-700 dark:text-slate-300">
-                          {item.products?.name || 'Товар'} × {item.quantity}
-                        </span>
-                        <span className="text-sm font-bold text-gray-900 dark:text-slate-100">
-                          {item.total_price?.toFixed(2) || '0.00'} ₽
-                        </span>
                       </div>
                     ))}
                   </div>
-                  
-                  <button
-                    onClick={handleReturn}
-                    disabled={loading || selectedReturnItems.size === 0}
-                    className="w-full mt-3 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white rounded-lg text-sm font-bold transition-colors disabled:cursor-not-allowed"
-                  >
-                    {loading ? 'Обработка...' : `Оформить возврат (${selectedReturnItems.size} товаров)`}
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-          
-          {/* Список чеков */}
+                )}
+
+                {selectedReceiptForReturn && (
+                  <div className="mt-4 pt-4 border-t border-gray-200 dark:border-slate-700">
+                    <h5 className="text-xs font-bold text-gray-700 dark:text-slate-300 mb-2">
+                      Выберите товары для возврата:
+                    </h5>
+                    <div className="space-y-1 max-h-40 overflow-y-auto">
+                      {(selectedReceiptForReturn.receipt_items || []).map((item: any) => (
+                        <div
+                          key={item.id}
+                          className="flex items-center space-x-3 p-2 bg-white dark:bg-slate-900 rounded-lg border border-gray-100 dark:border-slate-800"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedReturnItems.has(item.id)}
+                            onChange={() => {
+                              const newSet = new Set(selectedReturnItems);
+                              if (newSet.has(item.id)) {
+                                newSet.delete(item.id);
+                              } else {
+                                newSet.add(item.id);
+                              }
+                              setSelectedReturnItems(newSet);
+                            }}
+                            className="w-4 h-4 text-green-600 rounded cursor-pointer"
+                          />
+                          <span className="text-sm flex-1 text-gray-700 dark:text-slate-300">
+                            {item.products?.name || 'Товар'} × {item.quantity}
+                          </span>
+                          <span className="text-sm font-bold text-gray-900 dark:text-slate-100">
+                            {item.total_price?.toFixed(2) || '0.00'} ₽
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <button
+                      onClick={handleReturn}
+                      disabled={loading || selectedReturnItems.size === 0}
+                      className="w-full mt-3 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white rounded-lg text-sm font-bold transition-colors disabled:cursor-not-allowed"
+                    >
+                      {loading ? 'Обработка...' : `Оформить возврат (${selectedReturnItems.size} товаров)`}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Список чеков */}
             <div className="space-y-3 max-h-[350px] overflow-y-auto">
               {(!receipts || receipts.length === 0) ? (
                 <div className="text-center py-10 text-gray-400 text-sm">
@@ -1203,22 +1209,21 @@ const [period, setPeriod] = useState<'today' | 'week' | 'month'>('today');
                 ))
               )}
             </div>
-            
+
             {/* Кнопка отчёта */}
             <div className="mt-4 pt-4 border-t border-gray-100 dark:border-slate-800">
               <button
                 onClick={handleDownloadShiftReport}
                 disabled={!activeShift || receipts.length === 0}
-                className={`w-full py-3 bg-gray-200 dark:bg-slate-800 hover:bg-gray-300 dark:hover:bg-slate-700 rounded-lg text-sm font-bold transition-colors flex items-center justify-center space-x-2 ${
-                  !activeShift || receipts.length === 0 ? 'opacity-50 cursor-not-allowed' : ''
-                }`}
+                className={`w-full py-3 bg-gray-200 dark:bg-slate-800 hover:bg-gray-300 dark:hover:bg-slate-700 rounded-lg text-sm font-bold transition-colors flex items-center justify-center space-x-2 ${!activeShift || receipts.length === 0 ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
               >
                 <Printer className="w-5 h-5" />
                 <span>Скачать отчёт за смену</span>
               </button>
             </div>
           </div>
-          
+
         </div>
       </div>
 
@@ -1229,7 +1234,7 @@ const [period, setPeriod] = useState<'today' | 'week' | 'month'>('today');
           <span>{error}</span>
         </div>
       )}
-      
+
       {successMessage && (
         <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900/30 rounded-xl p-3 text-sm text-green-700 dark:text-green-400 flex items-center space-x-2">
           <CheckCircle className="w-4 h-4 shrink-0" />

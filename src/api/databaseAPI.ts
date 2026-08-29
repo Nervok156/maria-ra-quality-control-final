@@ -865,9 +865,9 @@ export async function createReceiptItems(items: any[]) {
     receipt_id: item.receipt_id,
     product_id: item.product_id,
     batch_id: item.batch_id,
-    quantity: item.quantity,
+    quantity: item.quantity, // может быть отрицательным для возвратов
     unit_price: item.unit_price,
-    total_price: item.total_price || (item.quantity * item.unit_price),
+    total_price: item.total_price || (item.quantity * item.unit_price), // может быть отрицательным
     discount_percent: item.discount_percent || 0,
     discount_amount: item.discount_amount || 0,
     created_at: new Date().toISOString()
@@ -884,6 +884,7 @@ export async function createReceiptItems(items: any[]) {
   }
   return data || [];
 }
+
 
 export async function getTodayReceipts(cashierId?: string) {
   const today = new Date();
@@ -1069,7 +1070,8 @@ export async function createReturnReceipt(
   cashierId: string,
   paymentMethod: 'cash' | 'card'
 ) {
-  const totalAmount = items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
+  // ✅ Сумма возврата должна быть ОТРИЦАТЕЛЬНОЙ (уменьшать выручку)
+  const totalAmount = -items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
   
   // Проверяем, не был ли уже возвращён этот чек
   const { data: existingReturns, error: checkError } = await supabase
@@ -1089,14 +1091,14 @@ export async function createReturnReceipt(
   
   const receiptNumber = await getNextReceiptNumber('store_1');
   
-  // 1. Создаём чек возврата
+  // 1. Создаём чек возврата (с отрицательной суммой)
   const receipt = await createReceipt({
     receipt_number: receiptNumber,
     cashier_id: cashierId,
     store_id: 'store_1',
-    total_amount: totalAmount,
+    total_amount: totalAmount, // ← ОТРИЦАТЕЛЬНАЯ СУММА
     payment_method: paymentMethod,
-    paid_amount: totalAmount,
+    paid_amount: Math.abs(totalAmount), // ← положительная для отображения
     change_amount: 0,
     is_return: true,
     return_for_id: originalReceiptId
@@ -1106,93 +1108,73 @@ export async function createReturnReceipt(
     throw new Error('Не удалось создать чек возврата');
   }
   
-  // 2. Создаём позиции возврата
+  // 2. Создаём позиции возврата (с отрицательными суммами)
   const receiptItems = items.map(item => ({
     receipt_id: receipt.id,
     product_id: item.product_id,
     batch_id: item.batch_id,
-    quantity: item.quantity,
+    quantity: -item.quantity, // ← ОТРИЦАТЕЛЬНОЕ КОЛИЧЕСТВО
     unit_price: item.unit_price,
-    total_price: item.quantity * item.unit_price
+    total_price: -(item.quantity * item.unit_price) // ← ОТРИЦАТЕЛЬНАЯ СУММА
   }));
   
   await createReceiptItems(receiptItems);
   
- // 3. ✅ Возвращаем товары на полку и обновляем статус
-for (const item of items) {
-  const { data: batch, error: batchError } = await supabase
-    .from('batches')
-    .select('quantity, is_written_off, is_marked_down')
-    .eq('id', item.batch_id)
-    .single();
-  
-  if (batchError) {
-    console.error('❌ Ошибка поиска партии:', batchError);
-    continue;
+  // 3. Возвращаем товары на полку
+  for (const item of items) {
+    const { data: batch, error: batchError } = await supabase
+      .from('batches')
+      .select('quantity, is_written_off')
+      .eq('id', item.batch_id)
+      .single();
+    
+    if (batchError) {
+      console.error('❌ Ошибка поиска партии:', batchError);
+      continue;
+    }
+    
+    const newQuantity = (batch?.quantity || 0) + item.quantity;
+    
+    const updateData: any = { 
+      quantity: newQuantity 
+    };
+    
+    if (batch?.is_written_off === true) {
+      updateData.is_written_off = false;
+      updateData.writeoff_reason = null;
+    }
+    
+    const { error: updateError } = await supabase
+      .from('batches')
+      .update(updateData)
+      .eq('id', item.batch_id);
+    
+    if (updateError) {
+      console.error('❌ Ошибка обновления партии:', updateError);
+    }
   }
   
-  const newQuantity = (batch?.quantity || 0) + item.quantity;
-  
-  // ✅ Обновляем количество и статусы
-  const updateData: any = { 
-    quantity: newQuantity 
-  };
-  
-  // Если партия была списана, возвращаем в оборот
-  if (batch?.is_written_off === true) {
-    updateData.is_written_off = false;
-    updateData.writeoff_reason = null;
-    console.log('📦 Партия была списана, возвращаем в оборот');
+  // 4. Записываем возврат в sales_log (с отрицательными значениями)
+  for (const item of items) {
+    const { error: saleError } = await supabase
+      .from('sales_log')
+      .insert([{
+        id: `return_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+        product_id: item.product_id,
+        quantity: -item.quantity, // ← ОТРИЦАТЕЛЬНОЕ КОЛИЧЕСТВО
+        unit_price: item.unit_price,
+        total_sum: -(item.quantity * item.unit_price), // ← ОТРИЦАТЕЛЬНАЯ СУММА
+        sold_at: new Date().toISOString()
+      }]);
+    
+    if (saleError) {
+      console.error('❌ Ошибка записи возврата в sales_log:', saleError);
+    }
   }
   
-  // ✅ Если партия была уценена, снимаем уценку
-  if (batch?.is_marked_down === true) {
-    updateData.is_marked_down = false;
-    console.log('🏷️ Партия была уценена, снимаем отметку');
-  }
-  
-  const { error: updateError } = await supabase
-    .from('batches')
-    .update(updateData)
-    .eq('id', item.batch_id);
-  
-  if (updateError) {
-    console.error('❌ Ошибка обновления партии:', updateError);
-  } else {
-    console.log(`📦 Товар возвращён на полку, новый остаток: ${newQuantity}`);
-  }
-}
-  
-// 4. ✅ ЗАПИСЫВАЕМ ВОЗВРАТ В sales_log
-console.log('🔄 Записываем возврат в sales_log...');
-for (const item of items) {
-  const negativeQuantity = -item.quantity;
-  const negativeTotal = -(item.quantity * item.unit_price);
-  
-  const returnRecord = {
-    id: `return_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,  // ✅ Добавляем id
-    product_id: item.product_id,
-    quantity: negativeQuantity,
-    unit_price: item.unit_price,
-    total_sum: negativeTotal,
-    sold_at: new Date().toISOString()
-  };
-  
-  console.log('📝 Данные для записи:', returnRecord);
-  
-  const { error: saleError } = await supabase
-    .from('sales_log')
-    .insert([returnRecord]);
-  
-  if (saleError) {
-    console.error('❌ Ошибка записи возврата в sales_log:', saleError);
-    console.error('❌ Детали:', saleError.message);
-  } else {
-    console.log('✅ Возврат записан в sales_log');
-  }
-}
   return receipt;
 }
+
 // ==========================================================
 // 25. РАБОТА СО СМЕНАМИ
 // ==========================================================
