@@ -281,124 +281,125 @@ const [shiftReceipts, setShiftReceipts] = useState<any[]>([]);
   // ОПЛАТА
   // ==========================================================
   const handlePayment = async () => {
-    // ✅ Проверка: смена должна быть активна
-    if (!activeShift) {
-      setError('⚠️ Сначала начните смену!');
-      setTimeout(() => setError(null), 3000);
-      return;
-    }
+  if (!activeShift) {
+    setError('⚠️ Сначала начните смену!');
+    setTimeout(() => setError(null), 3000);
+    return;
+  }
 
-    console.log('🟢 handlePayment вызвана!');
-    console.log('📦 Корзина:', cart);
+  console.log('🟢 handlePayment вызвана!');
+  console.log('📦 Корзина:', cart);
+  
+  if (cart.length === 0) {
+    setError('Корзина пуста');
+    setTimeout(() => setError(null), 3000);
+    return;
+  }
+
+  const total = getTotal();
+  console.log('💰 Итоговая сумма:', total);
+  
+  if (paymentMethod === 'cash' && paidAmount < total) {
+    setError('Внесена недостаточная сумма');
+    setTimeout(() => setError(null), 3000);
+    return;
+  }
+
+  try {
+    setLoading(true);
+    console.log('🔄 Начинаем оформление чека...');
     
-    if (cart.length === 0) {
-      setError('Корзина пуста');
-      setTimeout(() => setError(null), 3000);
-      return;
-    }
-
-    const total = getTotal();
-    console.log('💰 Итоговая сумма:', total);
+    const receiptNumber = await getNextReceiptNumber('store_1');
+    console.log('📋 Номер чека:', receiptNumber);
     
-    if (paymentMethod === 'cash' && paidAmount < total) {
-      setError('Внесена недостаточная сумма');
-      setTimeout(() => setError(null), 3000);
-      return;
-    }
+    const receipt = await createReceipt({
+      receipt_number: receiptNumber,
+      cashier_id: currentUser.id,
+      store_id: 'store_1',
+      total_amount: total,
+      payment_method: paymentMethod,
+      paid_amount: paymentMethod === 'cash' ? paidAmount : total,
+      change_amount: paymentMethod === 'cash' ? paidAmount - total : 0,
+      is_return: false,
+      shift_id: activeShift.id // ← связываем со сменой
+    });
 
-    try {
-      setLoading(true);
-      console.log('🔄 Начинаем оформление чека...');
+    if (!receipt) {
+      throw new Error('Не удалось создать чек');
+    }
+    console.log('✅ Чек создан:', receipt.id);
+
+    const items = [];
+    let saleSuccess = true;
+    
+    for (const item of cart) {
+      console.log(`🔄 Обрабатываем товар: ${item.product?.name}`);
       
-      const receiptNumber = await getNextReceiptNumber('store_1');
-      console.log('📋 Номер чека:', receiptNumber);
+      const { data: markdowns } = await supabase
+        .from('markdown_log')
+        .select('new_price')
+        .eq('batch_id', item.batchId)
+        .order('marked_at', { ascending: false })
+        .limit(1);
       
-      const receipt = await createReceipt({
-        receipt_number: receiptNumber,
-        cashier_id: currentUser.id,
-        store_id: 'store_1',
-        total_amount: total,
-        payment_method: paymentMethod,
-        paid_amount: paymentMethod === 'cash' ? paidAmount : total,
-        change_amount: paymentMethod === 'cash' ? paidAmount - total : 0,
-        is_return: false,
-        shift_id: activeShift.id // ← ДОБАВЛЯЕМ СВЯЗЬ СО СМЕНОЙ
+      const actualPrice = (markdowns && markdowns.length > 0) 
+        ? markdowns[0].new_price 
+        : item.unitPrice;
+      
+      console.log(`💰 Цена: ${actualPrice}, Кол-во: ${item.quantity}`);
+      
+      items.push({
+        receipt_id: receipt.id,
+        product_id: item.product.id,
+        batch_id: item.batchId,
+        quantity: item.quantity,
+        unit_price: actualPrice,
+        total_price: item.quantity * actualPrice
       });
 
-      if (!receipt) {
-        throw new Error('Не удалось создать чек');
+      console.log('🔄 Вызываем recordSaleInSupabase...');
+      const success = await recordSaleInSupabase(
+        item.product.id,
+        item.quantity,
+        actualPrice,
+        item.batchId
+      );
+      
+      if (success) {
+        console.log('✅ Товар успешно списан');
+      } else {
+        console.error('❌ Ошибка списания товара');
+        saleSuccess = false;
       }
-      console.log('✅ Чек создан:', receipt.id);
-
-      const items = [];
-      let saleSuccess = true;
-      
-      for (const item of cart) {
-        console.log(`🔄 Обрабатываем товар: ${item.product?.name}`);
-        
-        const { data: markdowns } = await supabase
-          .from('markdown_log')
-          .select('new_price')
-          .eq('batch_id', item.batchId)
-          .order('marked_at', { ascending: false })
-          .limit(1);
-        
-        const actualPrice = (markdowns && markdowns.length > 0) 
-          ? markdowns[0].new_price 
-          : item.unitPrice;
-        
-        console.log(`💰 Цена: ${actualPrice}, Кол-во: ${item.quantity}`);
-        
-        items.push({
-          receipt_id: receipt.id,
-          product_id: item.product.id,
-          batch_id: item.batchId,
-          quantity: item.quantity,
-          unit_price: actualPrice,
-          total_price: item.quantity * actualPrice
-        });
-
-        console.log('🔄 Вызываем recordSaleInSupabase...');
-        const success = await recordSaleInSupabase(
-          item.product.id,
-          item.quantity,
-          actualPrice,
-          item.batchId
-        );
-        
-        if (success) {
-          console.log('✅ Товар успешно списан');
-        } else {
-          console.error('❌ Ошибка списания товара');
-          saleSuccess = false;
-        }
-      }
-
-      if (!saleSuccess) {
-        console.error('❌ Ошибка при списании товаров');
-      }
-
-      await createReceiptItems(items);
-      console.log('✅ Позиции чека созданы');
-      
-      await loadReceipts();
-      await loadShiftReceipts(activeShift.id); // ← ОБНОВЛЯЕМ ЧЕКИ СМЕНЫ
-      await onDataChange();
-      
-      clearCart();
-      setPaidAmount(0);
-      
-      setSuccessMessage(`Чек №${receiptNumber} успешно оформлен!`);
-      setTimeout(() => setSuccessMessage(null), 3000);
-      
-    } catch (error) {
-      console.error('❌ Ошибка оформления чека:', error);
-      setError('Ошибка оформления чека');
-      setTimeout(() => setError(null), 3000);
-    } finally {
-      setLoading(false);
     }
-  };
+
+    if (!saleSuccess) {
+      console.error('❌ Ошибка при списании товаров');
+    }
+
+    await createReceiptItems(items);
+    console.log('✅ Позиции чека созданы');
+    
+    // ✅ Обновляем все данные
+    await loadReceipts();
+    await loadShiftReceipts(activeShift.id); // ← обновляем чеки смены
+    await onDataChange();
+    
+    clearCart();
+    setPaidAmount(0);
+    
+    setSuccessMessage(`Чек №${receiptNumber} успешно оформлен!`);
+    setTimeout(() => setSuccessMessage(null), 3000);
+    
+  } catch (error) {
+    console.error('❌ Ошибка оформления чека:', error);
+    setError('Ошибка оформления чека');
+    setTimeout(() => setError(null), 3000);
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   // ==========================================================
   // СКАЧИВАНИЕ ЧЕКОВ И ОТЧЁТОВ
@@ -573,7 +574,7 @@ ${index + 1}. Чек №${receipt.receipt_number}
     return;
   }
   
-  // ✅ Проверяем, не был ли уже возвращён этот чек
+  // Проверяем, не был ли уже возвращён этот чек
   const { data: existingReturns } = await supabase
     .from('receipts')
     .select('id')
@@ -597,44 +598,49 @@ ${index + 1}. Чек №${receipt.receipt_number}
     return;
   }
 
-    try {
-      setLoading(true);
-      
-      const returnItems = selectedItems.map((item: any) => ({
-        receipt_item_id: item.id,
-        product_id: item.product_id,
-        batch_id: item.batch_id,
-        quantity: item.quantity,
-        unit_price: item.unit_price
-      }));
-      
-      const receipt = await createReturnReceipt(
-        selectedReceiptForReturn.id,
-        returnItems,
-        currentUser.id,
-        'cash'
-      );
-      
-      await loadReceipts();
-      await onDataChange();
-      
-      setSuccessMessage(`Возврат оформлен! Чек №${receipt.receipt_number}`);
-      setTimeout(() => setSuccessMessage(null), 3000);
-      
-      setReturnMode(false);
-      setSelectedReceiptForReturn(null);
-      setSelectedReturnItems(new Set());
-      setFoundReceipts([]);
-      setSearchReceiptTerm('');
-      
-    } catch (error) {
-      console.error('❌ Ошибка оформления возврата:', error);
-      setError('Ошибка оформления возврата');
-      setTimeout(() => setError(null), 3000);
-    } finally {
-      setLoading(false);
+  try {
+    setLoading(true);
+    
+    const returnItems = selectedItems.map((item: any) => ({
+      receipt_item_id: item.id,
+      product_id: item.product_id,
+      batch_id: item.batch_id,
+      quantity: item.quantity,
+      unit_price: item.unit_price
+    }));
+    
+    const receipt = await createReturnReceipt(
+      selectedReceiptForReturn.id,
+      returnItems,
+      currentUser.id,
+      'cash'
+    );
+    
+    // ✅ Обновляем все данные
+    await loadReceipts();
+    if (activeShift) {
+      await loadShiftReceipts(activeShift.id); // ← обновляем чеки смены
     }
-  };
+    await onDataChange();
+    
+    setSuccessMessage(`Возврат оформлен! Чек №${receipt.receipt_number}`);
+    setTimeout(() => setSuccessMessage(null), 3000);
+    
+    setReturnMode(false);
+    setSelectedReceiptForReturn(null);
+    setSelectedReturnItems(new Set());
+    setFoundReceipts([]);
+    setSearchReceiptTerm('');
+    
+  } catch (error) {
+    console.error('❌ Ошибка оформления возврата:', error);
+    setError('Ошибка оформления возврата');
+    setTimeout(() => setError(null), 3000);
+  } finally {
+    setLoading(false);
+  }
+};
+
   {/* Блок смены */}
 <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-xl p-4 mb-4">
   {activeShift ? (

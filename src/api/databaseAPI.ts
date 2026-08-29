@@ -1210,6 +1210,7 @@ export async function startShift(cashierId: string, storeId: string = 'store_1',
     throw new Error('У вас уже есть активная смена! Закройте её перед началом новой.');
   }
 
+  // ✅ Используем серверное время через .now()
   const shiftId = `shift_${Date.now()}`;
   const { data, error } = await supabase
     .from('shifts')
@@ -1217,9 +1218,11 @@ export async function startShift(cashierId: string, storeId: string = 'store_1',
       id: shiftId,
       cashier_id: cashierId,
       store_id: storeId,
-      start_time: new Date().toISOString(),
+      start_time: new Date().toISOString(), // ← это локальное время, но в Supabase сохраняется UTC
       start_cash: startCash,
-      is_active: true
+      is_active: true,
+      receipts_count: 0,
+      total_revenue: 0
     }])
     .select();
 
@@ -1315,3 +1318,4 @@ export async function getReceiptsByShift(shiftId: string) {
   }
   return data || [];
 }
+
