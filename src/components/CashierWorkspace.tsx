@@ -13,7 +13,10 @@ import {
   recordSaleInSupabase,
   getActiveProducts,
   searchReceiptsForReturn,
-  createReturnReceipt
+  createReturnReceipt,
+  getActiveShift,    
+  startShift,        
+  closeShift
 } from '../api/databaseAPI';
 import { supabase } from '../lib/supabaseClient';
 import { Product, Employee } from '../types';
@@ -42,6 +45,11 @@ export default function CashierWorkspace({ currentUser, onDataChange }: CashierW
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card'>('cash');
   const [paidAmount, setPaidAmount] = useState<number>(0);
 
+  const [activeShift, setActiveShift] = useState<any>(null);
+const [shiftStartCash, setShiftStartCash] = useState<number>(0);
+const [shiftEndCash, setShiftEndCash] = useState<number>(0);
+const [showShiftModal, setShowShiftModal] = useState(false);
+
   // ==========================================================
   // СОСТОЯНИЯ ДЛЯ ВОЗВРАТА
   // ==========================================================
@@ -51,17 +59,105 @@ export default function CashierWorkspace({ currentUser, onDataChange }: CashierW
   const [selectedReceiptForReturn, setSelectedReceiptForReturn] = useState<any>(null);
   const [selectedReturnItems, setSelectedReturnItems] = useState<Set<string>>(new Set());
 
+  // Загрузка активной смены
+const loadActiveShift = async () => {
+  try {
+    const shift = await getActiveShift(currentUser.id);
+    setActiveShift(shift);
+  } catch (error) {
+    console.error('❌ Ошибка загрузки смены:', error);
+  }
+};
+
+useEffect(() => {
+  loadActiveShift();
+}, []);
+
+// Начать смену
+const handleStartShift = async () => {
+  try {
+    setLoading(true);
+    await startShift(currentUser.id, 'store_1', shiftStartCash);
+    await loadActiveShift();
+    setShowShiftModal(false);
+    setSuccessMessage('Смена успешно начата!');
+    setTimeout(() => setSuccessMessage(null), 3000);
+  } catch (error) {
+    console.error('❌ Ошибка начала смены:', error);
+    setError((error as any).message || 'Ошибка начала смены');
+    setTimeout(() => setError(null), 3000);
+  } finally {
+    setLoading(false);
+  }
+};
+
+// Закрыть смену
+const handleCloseShift = async () => {
+  if (!activeShift) return;
+  
+  try {
+    setLoading(true);
+    await closeShift(currentUser.id, shiftEndCash);
+    await loadActiveShift();
+    setSuccessMessage('Смена успешно закрыта!');
+    setTimeout(() => setSuccessMessage(null), 3000);
+  } catch (error) {
+    console.error('❌ Ошибка закрытия смены:', error);
+    setError((error as any).message || 'Ошибка закрытия смены');
+    setTimeout(() => setError(null), 3000);
+  } finally {
+    setLoading(false);
+  }
+};
+
   // ==========================================================
   // ЗАГРУЗКА ЧЕКОВ
   // ==========================================================
   const loadReceipts = async () => {
-    try {
-      const data = await getTodayReceipts(currentUser.id);
-      setReceipts(data || []);
-    } catch (error) {
-      console.error('❌ Ошибка загрузки чеков:', error);
+  try {
+    const query = supabase
+      .from('receipts')
+      .select(`
+        *,
+        receipt_items(
+          *,
+          products(
+            id,
+            name,
+            barcode,
+            base_price
+          )
+        )
+      `)
+      .eq('cashier_id', currentUser.id)
+      .order('created_at', { ascending: false });
+
+    const now = new Date();
+    if (period === 'today') {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      query.gte('created_at', today.toISOString());
+    } else if (period === 'week') {
+      const weekAgo = new Date();
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      query.gte('created_at', weekAgo.toISOString());
+    } else if (period === 'month') {
+      const monthAgo = new Date();
+      monthAgo.setDate(monthAgo.getDate() - 30);
+      query.gte('created_at', monthAgo.toISOString());
     }
-  };
+
+    const { data, error } = await query;
+    
+    if (error) {
+      console.error('❌ Ошибка загрузки чеков:', error);
+      return;
+    }
+    setReceipts(data || []);
+  } catch (error) {
+    console.error('❌ Ошибка загрузки чеков:', error);
+  }
+};
 
   useEffect(() => {
     loadReceipts();
@@ -544,7 +640,104 @@ ${index + 1}. Чек №${receipt.receipt_number}
       setLoading(false);
     }
   };
-
+  {/* Блок смены */}
+<div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-xl p-4 mb-4">
+  {activeShift ? (
+    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+      <div>
+        <span className="text-xs font-bold text-green-600 dark:text-green-400 flex items-center">
+          <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse mr-2"></span>
+          СМЕНА АКТИВНА
+        </span>
+        <span className="text-xs text-gray-500 dark:text-slate-400 block mt-1">
+          Начало: {new Date(activeShift.start_time).toLocaleString('ru-RU')}
+        </span>
+        <span className="text-xs text-gray-500 dark:text-slate-400 block">
+          Начальный остаток: {activeShift.start_cash?.toFixed(2) || '0.00'} ₽
+        </span>
+        <span className="text-xs text-gray-500 dark:text-slate-400 block">
+          Чеков за смену: {activeShift.receipts_count || 0}
+        </span>
+      </div>
+      <div className="flex gap-2 w-full sm:w-auto">
+        <input
+          type="number"
+          placeholder="Фактическая выручка ₽"
+          value={shiftEndCash || ''}
+          onChange={(e) => setShiftEndCash(parseFloat(e.target.value) || 0)}
+          className="flex-1 sm:flex-none bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-green-500"
+          step="0.01"
+        />
+        <button
+          onClick={handleCloseShift}
+          disabled={loading}
+          className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold transition-colors disabled:opacity-50 whitespace-nowrap"
+        >
+          {loading ? '...' : 'Закрыть смену'}
+        </button>
+      </div>
+    </div>
+  ) : (
+    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+      <div>
+        <span className="text-xs font-bold text-gray-400 dark:text-slate-500">СМЕНА НЕ АКТИВНА</span>
+        <span className="text-xs text-gray-400 dark:text-slate-500 block mt-1">
+          Начните смену для работы с кассой
+        </span>
+      </div>
+      <div className="flex gap-2 w-full sm:w-auto">
+        <input
+          type="number"
+          placeholder="Начальный остаток ₽"
+          value={shiftStartCash || ''}
+          onChange={(e) => setShiftStartCash(parseFloat(e.target.value) || 0)}
+          className="flex-1 sm:flex-none bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-green-500"
+          step="0.01"
+        />
+        <button
+          onClick={handleStartShift}
+          disabled={loading}
+          className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-bold transition-colors disabled:opacity-50 whitespace-nowrap"
+        >
+          {loading ? '...' : 'Начать смену'}
+        </button>
+      </div>
+    </div>
+  )}
+</div>
+const [period, setPeriod] = useState<'today' | 'week' | 'month'>('today');
+<div className="flex gap-1 mb-3">
+  <button
+    onClick={() => setPeriod('today')}
+    className={`px-3 py-1 rounded text-xs font-bold transition-colors ${
+      period === 'today' 
+        ? 'bg-green-600 text-white' 
+        : 'bg-gray-200 dark:bg-slate-800 text-gray-700 dark:text-slate-300 hover:bg-gray-300 dark:hover:bg-slate-700'
+    }`}
+  >
+    Сегодня
+  </button>
+  <button
+    onClick={() => setPeriod('week')}
+    className={`px-3 py-1 rounded text-xs font-bold transition-colors ${
+      period === 'week' 
+        ? 'bg-green-600 text-white' 
+        : 'bg-gray-200 dark:bg-slate-800 text-gray-700 dark:text-slate-300 hover:bg-gray-300 dark:hover:bg-slate-700'
+    }`}
+  >
+    Неделя
+  </button>
+  <button
+    onClick={() => setPeriod('month')}
+    className={`px-3 py-1 rounded text-xs font-bold transition-colors ${
+      period === 'month' 
+        ? 'bg-green-600 text-white' 
+        : 'bg-gray-200 dark:bg-slate-800 text-gray-700 dark:text-slate-300 hover:bg-gray-300 dark:hover:bg-slate-700'
+    }`}
+  >
+    Месяц
+  </button>
+</div>
   // ==========================================================
   // JSX
   // ==========================================================

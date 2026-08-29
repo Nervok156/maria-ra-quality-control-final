@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { Sun, ShieldAlert, KeyRound, User, Eye, EyeOff, LogIn } from 'lucide-react';
 import { Employee } from '../types';
 import { getEmployeeWithPasswordHash, verifyPassword } from '../api/databaseAPI';
+import { supabase } from '../lib/supabaseClient';
 
 interface LoginProps {
   onLogin: (employee: Employee) => void;
@@ -215,7 +216,29 @@ export default function Login({ onLogin }: LoginProps) {
         setIsLoading(false);
         return;
       }
+      // ✅ Проверяем, работает ли сегодня сотрудник
+const today = new Date();
+const dayOfWeek = today.getDay(); // 0 - воскресенье, 6 - суббота
+const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
 
+// Получаем расписание сотрудника на сегодня
+const { data: schedule, error: scheduleError } = await supabase
+  .from('employee_schedules')
+  .select('*')
+  .eq('employee_id', employee.id)
+  .eq('day_type', isWeekend ? 'weekend' : 'weekday')
+  .maybeSingle();
+
+if (scheduleError) {
+  console.error('❌ Ошибка проверки расписания:', scheduleError);
+}
+
+// Если расписание не найдено или статус "Выходной"
+if (!schedule || schedule.status === 'Выходной') {
+  setError('❌ Сегодня у вас выходной! Обратитесь к администратору.');
+  setIsLoading(false);
+  return;
+}
       // ✅ Успешный вход — сбрасываем счётчик
       setLoginAttempts(0);
       localStorage.removeItem('maria_ra_blocked_until');
@@ -413,7 +436,6 @@ export default function Login({ onLogin }: LoginProps) {
               {[
                 { id: '1', name: 'Копыл И.А.', role: 'Товаровед-кассир', login: 'T-0421' },
                 { id: '2', name: 'Иванова А.С.', role: 'Директор магазина', login: 'D-0012' },
-                { id: '3', name: 'Федорова М.В.', role: 'Старший бухгалтер', login: 'B-0089' },
                 { id: '4', name: 'Васильев П.С.', role: 'Старший товаровед', login: 'M-0145' },
                 { id: '5', name: 'Смирнов А.В.', role: 'Товаровед-кассир', login: 'C-0842' },
               ].map(emp => (

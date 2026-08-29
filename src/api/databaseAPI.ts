@@ -1192,3 +1192,101 @@ for (const item of items) {
 }
   return receipt;
 }
+// ==========================================================
+// 25. РАБОТА СО СМЕНАМИ
+// ==========================================================
+
+// Начать смену
+export async function startShift(cashierId: string, storeId: string = 'store_1', startCash: number = 0) {
+  // Проверяем, есть ли активная смена
+  const { data: activeShift } = await supabase
+    .from('shifts')
+    .select('id')
+    .eq('cashier_id', cashierId)
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (activeShift) {
+    throw new Error('У вас уже есть активная смена! Закройте её перед началом новой.');
+  }
+
+  const shiftId = `shift_${Date.now()}`;
+  const { data, error } = await supabase
+    .from('shifts')
+    .insert([{
+      id: shiftId,
+      cashier_id: cashierId,
+      store_id: storeId,
+      start_time: new Date().toISOString(),
+      start_cash: startCash,
+      is_active: true
+    }])
+    .select();
+
+  if (error) {
+    console.error('❌ Ошибка начала смены:', error);
+    throw error;
+  }
+  return data?.[0];
+}
+
+// Закрыть смену
+export async function closeShift(cashierId: string, endCash: number) {
+  // Находим активную смену
+  const { data: shift, error: findError } = await supabase
+    .from('shifts')
+    .select('*')
+    .eq('cashier_id', cashierId)
+    .eq('is_active', true)
+    .single();
+
+  if (findError || !shift) {
+    throw new Error('Активная смена не найдена');
+  }
+
+  // Получаем все чеки за эту смену
+  const { data: receipts } = await supabase
+    .from('receipts')
+    .select('total_amount')
+    .eq('cashier_id', cashierId)
+    .gte('created_at', shift.start_time)
+    .eq('is_return', false);
+
+  const totalRevenue = receipts?.reduce((sum, r) => sum + (r.total_amount || 0), 0) || 0;
+  const receiptsCount = receipts?.length || 0;
+
+  const { data, error } = await supabase
+    .from('shifts')
+    .update({
+      end_time: new Date().toISOString(),
+      end_cash: endCash,
+      cash_difference: endCash - shift.start_cash - totalRevenue,
+      is_active: false,
+      receipts_count: receiptsCount,
+      total_revenue: totalRevenue
+    })
+    .eq('id', shift.id)
+    .select();
+
+  if (error) {
+    console.error('❌ Ошибка закрытия смены:', error);
+    throw error;
+  }
+  return data?.[0];
+}
+
+// Получить активную смену
+export async function getActiveShift(cashierId: string) {
+  const { data, error } = await supabase
+    .from('shifts')
+    .select('*')
+    .eq('cashier_id', cashierId)
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (error) {
+    console.error('❌ Ошибка получения активной смены:', error);
+    return null;
+  }
+  return data;
+}
