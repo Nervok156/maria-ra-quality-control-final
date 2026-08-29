@@ -152,10 +152,20 @@ const [shiftReceipts, setShiftReceipts] = useState<any[]>([]);
     }
   };
 
-  useEffect(() => {
-    loadActiveShift();
+useEffect(() => {
+  loadActiveShift();
+  loadReceipts();
+  
+  // ✅ Автообновление каждые 5 секунд
+  const interval = setInterval(() => {
+    if (activeShift) {
+      loadShiftReceipts(activeShift.id);
+    }
     loadReceipts();
-  }, []);
+  }, 5000);
+  
+  return () => clearInterval(interval);
+}, []);
 
   // ==========================================================
   // ПОИСК ТОВАРОВ
@@ -747,7 +757,6 @@ const [period, setPeriod] = useState<'today' | 'week' | 'month'>('today');
       <h3 className="text-base font-black text-gray-900 dark:text-slate-100 uppercase tracking-tight">
         🧾 Кассовый терминал
       </h3>
-
       {/* ==========================================================
           БЛОК УПРАВЛЕНИЯ СМЕНОЙ
           ========================================================== */}
@@ -845,6 +854,7 @@ const [period, setPeriod] = useState<'today' | 'week' | 'month'>('today');
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
           {/* Левая колонка: Поиск и корзина */}
           <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-xl p-5">
             <h4 className="text-sm font-black text-gray-700 dark:text-slate-300 mb-4">
@@ -873,175 +883,134 @@ const [period, setPeriod] = useState<'today' | 'week' | 'month'>('today');
                 )}
               </button>
             </div>
-          </div>
-      </div>
-     {error && (
-        <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/30 rounded-xl p-3 text-sm text-red-700 dark:text-red-400 flex items-center space-x-2">
-          <AlertCircle className="w-4 h-4 shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
-      
-      {successMessage && (
-        <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900/30 rounded-xl p-3 text-sm text-green-700 dark:text-green-400 flex items-center space-x-2">
-          <CheckCircle className="w-4 h-4 shrink-0" />
-          <span>{successMessage}</span>
-        </div>
-      )}
-    </div>
-  
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        
-        {/* Левая колонка: Поиск и корзина */}
-        <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-xl p-5">
-          <h4 className="text-sm font-black text-gray-700 dark:text-slate-300 mb-4">
-            Добавление товара в чек
-          </h4>
-          
-          <div className="flex gap-3 mb-4">
-            <input
-              type="text"
-              placeholder="Поиск по названию или штрихкоду..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              className="flex-1 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-green-500"
-            />
-            <button
-              onClick={handleSearch}
-              disabled={loading}
-              className="px-5 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-bold transition-colors disabled:opacity-50 flex items-center justify-center"
-            >
-              {loading ? (
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-              ) : (
-                <Search className="w-5 h-5" />
-              )}
-            </button>
-          </div>
-          
-          {searchResults.length > 0 && (
-            <div className="space-y-1 max-h-48 overflow-y-auto mb-4">
-              {searchResults.map((product) => (
-                <div
-                  key={product.id}
-                  className="flex justify-between items-center p-3 bg-gray-50 dark:bg-slate-800 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
-                >
-                  <div className="flex-1 min-w-0">
-                    <span className="text-sm font-bold text-gray-900 dark:text-slate-100 block truncate">
-                      {product.name || 'Без названия'}
-                    </span>
-                    <span className="text-xs text-gray-400">
-                      {product.base_price || product.price || 0} ₽ | {product.barcode || 'Нет штрихкода'}
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => addToCart(product)}
-                    disabled={loading}
-                    className="px-4 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded text-xs font-bold transition-colors ml-3 shrink-0 disabled:opacity-50"
-                  >
-                    + Добавить
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-          
-          <div className="border-t border-gray-100 dark:border-slate-800 pt-4">
-            <div className="flex justify-between items-center mb-3">
-              <span className="text-sm font-black text-gray-700 dark:text-slate-300">
-                Текущий чек
-              </span>
-              <span className="text-xs text-gray-400">
-                {cart.length} позиций
-              </span>
-            </div>
             
-            <div className="space-y-1 max-h-48 overflow-y-auto">
-              {cart.length === 0 ? (
-                <div className="text-center py-6 text-gray-400 text-sm">
-                  Корзина пуста. Добавьте товары через поиск.
-                </div>
-              ) : (
-                cart.map((item, index) => (
+            {/* Результаты поиска */}
+            {searchResults.length > 0 && (
+              <div className="space-y-1 max-h-48 overflow-y-auto mb-4">
+                {searchResults.map((product) => (
                   <div
-                    key={index}
-                    className="flex justify-between items-center text-sm py-2 border-b border-gray-50 dark:border-slate-800"
+                    key={product.id}
+                    className="flex justify-between items-center p-3 bg-gray-50 dark:bg-slate-800 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
                   >
-                    <span className="text-gray-700 dark:text-slate-300 text-sm flex-1">
-                      {item.product?.name || 'Товар'} × {item.quantity}
-                    </span>
-                    <div className="flex items-center space-x-3 shrink-0">
-                      <span className="font-bold">{item.totalPrice?.toFixed(2) || '0.00'} ₽</span>
-                      <button
-                        onClick={() => removeFromCart(index)}
-                        className="text-red-500 hover:text-red-700 transition-colors"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm font-bold text-gray-900 dark:text-slate-100 block truncate">
+                        {product.name || 'Без названия'}
+                      </span>
+                      <span className="text-xs text-gray-400">
+                        {product.base_price || product.price || 0} ₽ | {product.barcode || 'Нет штрихкода'}
+                      </span>
                     </div>
+                    <button
+                      onClick={() => addToCart(product)}
+                      disabled={loading || !activeShift}
+                      className="px-4 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded text-xs font-bold transition-colors ml-3 shrink-0 disabled:opacity-50"
+                    >
+                      + Добавить
+                    </button>
                   </div>
-                ))
-              )}
-            </div>
-            
-            <div className="flex justify-between items-center mt-3 pt-3 border-t border-gray-200 dark:border-slate-700">
-              <span className="text-base font-black text-gray-900 dark:text-slate-100">ИТОГО:</span>
-              <span className="text-base font-black text-green-600 dark:text-green-400">
-                {getTotal().toFixed(2)} ₽
-              </span>
-            </div>
-          </div>
-          
-          <div className="flex gap-3 mt-4 flex-wrap">
-            <select
-              value={paymentMethod}
-              onChange={(e) => setPaymentMethod(e.target.value as 'cash' | 'card')}
-              className="bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg px-4 py-3 text-sm font-bold text-gray-700 dark:text-slate-300 focus:outline-none focus:border-green-500"
-            >
-              <option value="cash">Наличные</option>
-              <option value="card">Карта</option>
-            </select>
-            
-            {paymentMethod === 'cash' && (
-              <input
-                type="number"
-                placeholder="Внесено ₽"
-                value={paidAmount || ''}
-                onChange={(e) => setPaidAmount(parseFloat(e.target.value) || 0)}
-                className="flex-1 min-w-[120px] bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-green-500"
-                step="0.01"
-              />
+                ))}
+              </div>
             )}
             
-            <button
-              onClick={handlePayment}
-              disabled={loading || cart.length === 0}
-              className="flex-1 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 dark:disabled:bg-slate-700 text-white rounded-lg text-sm font-bold transition-colors disabled:cursor-not-allowed flex items-center justify-center space-x-2"
-            >
-              {loading ? (
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-              ) : (
-                <>
-                  <CreditCard className="w-5 h-5" />
-                  <span>Оплатить</span>
-                </>
+            {/* Корзина */}
+            <div className="border-t border-gray-100 dark:border-slate-800 pt-4">
+              <div className="flex justify-between items-center mb-3">
+                <span className="text-sm font-black text-gray-700 dark:text-slate-300">
+                  Текущий чек
+                </span>
+                <span className="text-xs text-gray-400">
+                  {cart.length} позиций
+                </span>
+              </div>
+              
+              <div className="space-y-1 max-h-48 overflow-y-auto">
+                {cart.length === 0 ? (
+                  <div className="text-center py-6 text-gray-400 text-sm">
+                    Корзина пуста. Добавьте товары через поиск.
+                  </div>
+                ) : (
+                  cart.map((item, index) => (
+                    <div
+                      key={index}
+                      className="flex justify-between items-center text-sm py-2 border-b border-gray-50 dark:border-slate-800"
+                    >
+                      <span className="text-gray-700 dark:text-slate-300 text-sm flex-1">
+                        {item.product?.name || 'Товар'} × {item.quantity}
+                      </span>
+                      <div className="flex items-center space-x-3 shrink-0">
+                        <span className="font-bold">{item.totalPrice?.toFixed(2) || '0.00'} ₽</span>
+                        <button
+                          onClick={() => removeFromCart(index)}
+                          className="text-red-500 hover:text-red-700 transition-colors"
+                          disabled={!activeShift}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+              
+              <div className="flex justify-between items-center mt-3 pt-3 border-t border-gray-200 dark:border-slate-700">
+                <span className="text-base font-black text-gray-900 dark:text-slate-100">ИТОГО:</span>
+                <span className="text-base font-black text-green-600 dark:text-green-400">
+                  {getTotal().toFixed(2)} ₽
+                </span>
+              </div>
+            </div>
+            
+            {/* Кнопки оплаты */}
+            <div className="flex gap-3 mt-4 flex-wrap">
+              <select
+                value={paymentMethod}
+                onChange={(e) => setPaymentMethod(e.target.value as 'cash' | 'card')}
+                className="bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg px-4 py-3 text-sm font-bold text-gray-700 dark:text-slate-300 focus:outline-none focus:border-green-500"
+                disabled={!activeShift}
+              >
+                <option value="cash">Наличные</option>
+                <option value="card">Карта</option>
+              </select>
+              
+              {paymentMethod === 'cash' && (
+                <input
+                  type="number"
+                  placeholder="Внесено ₽"
+                  value={paidAmount || ''}
+                  onChange={(e) => setPaidAmount(parseFloat(e.target.value) || 0)}
+                  className="flex-1 min-w-[120px] bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-green-500"
+                  step="0.01"
+                  disabled={!activeShift}
+                />
               )}
+              
+              <button
+                onClick={handlePayment}
+                disabled={loading || cart.length === 0 || !activeShift}
+                className="flex-1 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 dark:disabled:bg-slate-700 text-white rounded-lg text-sm font-bold transition-colors disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+              >
+                {loading ? (
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                ) : (
+                  <>
+                    <CreditCard className="w-5 h-5" />
+                    <span>Оплатить</span>
+                  </>
+                )}
+              </button>
+            </div>
+            
+            <button
+              onClick={clearCart}
+              disabled={cart.length === 0 || !activeShift}
+              className="w-full mt-3 py-2 bg-red-100 hover:bg-red-200 disabled:bg-gray-100 dark:bg-red-950/20 dark:hover:bg-red-950/40 dark:disabled:bg-slate-800 text-red-700 dark:text-red-400 disabled:text-gray-400 dark:disabled:text-slate-600 rounded-lg text-sm font-bold transition-colors disabled:cursor-not-allowed"
+            >
+              Очистить чек
             </button>
           </div>
           
-          <button
-            onClick={clearCart}
-            disabled={cart.length === 0}
-            className="w-full mt-3 py-2 bg-red-100 hover:bg-red-200 disabled:bg-gray-100 dark:bg-red-950/20 dark:hover:bg-red-950/40 dark:disabled:bg-slate-800 text-red-700 dark:text-red-400 disabled:text-gray-400 dark:disabled:text-slate-600 rounded-lg text-sm font-bold transition-colors disabled:cursor-not-allowed"
-          >
-            Очистить чек
-          </button>
-        </div>
-        
-        {/* Правая колонка: История чеков */}
-        <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-xl p-5">
+          {/* Правая колонка: История чеков */}
+          <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-xl p-5">
             <div className="flex justify-between items-center mb-4">
               <h4 className="text-sm font-black text-gray-700 dark:text-slate-300">
                 📋 История чеков
@@ -1050,51 +1019,53 @@ const [period, setPeriod] = useState<'today' | 'week' | 'month'>('today');
                 {activeShift ? `Смена: ${shiftReceipts?.length || 0} чеков` : 'Смена не активна'}
               </span>
             </div>
-          {/* ✅ КНОПКА ВОЗВРАТА */}
-          <div className="flex gap-2 mb-4">
-            <button
-              onClick={() => {
-                setReturnMode(!returnMode);
-                if (!returnMode) {
-                  setSelectedReceiptForReturn(null);
-                  setSelectedReturnItems(new Set());
-                  setFoundReceipts([]);
-                }
-              }}
-              className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${
-                returnMode 
-                  ? 'bg-red-600 hover:bg-red-700 text-white'
-                  : 'bg-gray-200 dark:bg-slate-800 hover:bg-gray-300 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-300'
-              }`}
-            >
-              {returnMode ? '❌ Отмена возврата' : '🔄 Возврат товара'}
-            </button>
-          </div>
-          
-          {/* ✅ БЛОК ВОЗВРАТА */}
-          {returnMode && (
-            <div className="bg-gray-50 dark:bg-slate-800/50 rounded-xl p-4 mb-4 border border-gray-200 dark:border-slate-700">
-              <h4 className="text-sm font-black text-gray-700 dark:text-slate-300 mb-3">
-                🔄 Поиск чека для возврата
-              </h4>
-              
-              <div className="flex gap-2 mb-3">
-                <input
-                  type="text"
-                  placeholder="Введите номер чека..."
-                  value={searchReceiptTerm}
-                  onChange={(e) => setSearchReceiptTerm(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSearchReceipts()}
-                  className="flex-1 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-green-500"
-                />
-                <button
-                  onClick={handleSearchReceipts}
-                  disabled={loading}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-bold transition-colors disabled:opacity-50"
-                >
-                  {loading ? '...' : 'Найти'}
-                </button>
-              </div>
+            
+            {/* Кнопка возврата */}
+            <div className="flex gap-2 mb-4">
+              <button
+                onClick={() => {
+                  setReturnMode(!returnMode);
+                  if (!returnMode) {
+                    setSelectedReceiptForReturn(null);
+                    setSelectedReturnItems(new Set());
+                    setFoundReceipts([]);
+                  }
+                }}
+                disabled={!activeShift}
+                className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${
+                  returnMode 
+                    ? 'bg-red-600 hover:bg-red-700 text-white'
+                    : 'bg-gray-200 dark:bg-slate-800 hover:bg-gray-300 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-300'
+                } ${!activeShift ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                {returnMode ? '❌ Отмена возврата' : '🔄 Возврат товара'}
+              </button>
+            </div>
+            
+            {/* Блок возврата */}
+            {returnMode && activeShift && (
+              <div className="bg-gray-50 dark:bg-slate-800/50 rounded-xl p-4 mb-4 border border-gray-200 dark:border-slate-700">
+                <h4 className="text-sm font-black text-gray-700 dark:text-slate-300 mb-3">
+                  🔄 Поиск чека для возврата
+                </h4>
+                
+                <div className="flex gap-2 mb-3">
+                  <input
+                    type="text"
+                    placeholder="Введите номер чека..."
+                    value={searchReceiptTerm}
+                    onChange={(e) => setSearchReceiptTerm(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSearchReceipts()}
+                    className="flex-1 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-green-500"
+                  />
+                  <button
+                    onClick={handleSearchReceipts}
+                    disabled={loading}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-bold transition-colors disabled:opacity-50"
+                  >
+                    {loading ? '...' : 'Найти'}
+                  </button>
+                </div>
               
               {foundReceipts.length > 0 && (
                 <div className="space-y-2 max-h-60 overflow-y-auto">
@@ -1179,72 +1150,92 @@ const [period, setPeriod] = useState<'today' | 'week' | 'month'>('today');
           )}
           
           {/* Список чеков */}
-          <div className="space-y-3 max-h-[350px] overflow-y-auto">
-            {!receipts || receipts.length === 0 ? (
-              <div className="text-center py-10 text-gray-400 text-sm">
-                Нет чеков за сегодня
-              </div>
-            ) : (
-              receipts.map((receipt) => (
-                <div
-                  key={receipt.id}
-                  className="bg-gray-50 dark:bg-slate-800 rounded-lg p-4 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
-                >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <span className="text-sm font-bold text-gray-900 dark:text-slate-100 block">
-                        Чек №{receipt.receipt_number}
-                        {receipt.is_return && (
-                          <span className="ml-2 text-xs text-red-500 font-bold">(Возврат)</span>
-                        )}
-                      </span>
-                      <span className="text-xs text-gray-400">
-                        {new Date(receipt.created_at).toLocaleString('ru-RU')}
-                      </span>
-                      <div className="mt-1 space-y-0.5">
-                        {(receipt.receipt_items || []).map((item: any, idx: number) => (
-                          <div key={idx} className="text-xs text-gray-600 dark:text-gray-400 flex justify-between">
-                            <span className="truncate max-w-[180px]">
-                              {item.products?.name || 'Товар'} × {item.quantity}
-                            </span>
-                            <span className="font-medium">{item.total_price?.toFixed(2) || '0.00'} ₽</span>
-                          </div>
-                        ))}
+            <div className="space-y-3 max-h-[350px] overflow-y-auto">
+              {(!receipts || receipts.length === 0) ? (
+                <div className="text-center py-10 text-gray-400 text-sm">
+                  Нет чеков
+                </div>
+              ) : (
+                receipts.map((receipt) => (
+                  <div
+                    key={receipt.id}
+                    className="bg-gray-50 dark:bg-slate-800 rounded-lg p-4 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <span className="text-sm font-bold text-gray-900 dark:text-slate-100 block">
+                          Чек №{receipt.receipt_number}
+                          {receipt.is_return && (
+                            <span className="ml-2 text-xs text-red-500 font-bold">(Возврат)</span>
+                          )}
+                        </span>
+                        <span className="text-xs text-gray-400">
+                          {new Date(receipt.created_at).toLocaleString('ru-RU')}
+                        </span>
+                        <div className="mt-1 space-y-0.5">
+                          {(receipt.receipt_items || []).map((item: any, idx: number) => (
+                            <div key={idx} className="text-xs text-gray-600 dark:text-gray-400 flex justify-between">
+                              <span className="truncate max-w-[180px]">
+                                {item.products?.name || 'Товар'} × {item.quantity}
+                              </span>
+                              <span className="font-medium">{item.total_price?.toFixed(2) || '0.00'} ₽</span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                    <div className="text-right shrink-0 ml-4">
-                      <span className="text-base font-bold text-green-600 dark:text-green-400">
-                        {receipt.total_amount?.toFixed(2) || '0.00'} ₽
-                      </span>
-                      <div className="flex gap-1 mt-1">
-                        <button
-                          onClick={() => handleDownloadReceipt(receipt)}
-                          className="px-3 py-1.5 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 rounded text-xs font-bold hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors flex items-center space-x-1"
-                          title="Скачать чек"
-                        >
-                          <Download className="w-4 h-4" />
-                          <span>Скачать</span>
-                        </button>
+                      <div className="text-right shrink-0 ml-4">
+                        <span className="text-base font-bold text-green-600 dark:text-green-400">
+                          {receipt.total_amount?.toFixed(2) || '0.00'} ₽
+                        </span>
+                        <div className="flex gap-1 mt-1">
+                          <button
+                            onClick={() => handleDownloadReceipt(receipt)}
+                            className="px-3 py-1.5 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 rounded text-xs font-bold hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors flex items-center space-x-1"
+                            title="Скачать чек"
+                          >
+                            <Download className="w-4 h-4" />
+                            <span>Скачать</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))
-            )}
+                ))
+              )}
+            </div>
+            
+            {/* Кнопка отчёта */}
+            <div className="mt-4 pt-4 border-t border-gray-100 dark:border-slate-800">
+              <button
+                onClick={handleDownloadShiftReport}
+                disabled={!activeShift || receipts.length === 0}
+                className={`w-full py-3 bg-gray-200 dark:bg-slate-800 hover:bg-gray-300 dark:hover:bg-slate-700 rounded-lg text-sm font-bold transition-colors flex items-center justify-center space-x-2 ${
+                  !activeShift || receipts.length === 0 ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
+              >
+                <Printer className="w-5 h-5" />
+                <span>Скачать отчёт за смену</span>
+              </button>
+            </div>
           </div>
           
-          <div className="mt-4 pt-4 border-t border-gray-100 dark:border-slate-800">
-            <button
-              onClick={handleDownloadShiftReport}
-              className="w-full py-3 bg-gray-200 dark:bg-slate-800 hover:bg-gray-300 dark:hover:bg-slate-700 rounded-lg text-sm font-bold transition-colors flex items-center justify-center space-x-2"
-            >
-              <Printer className="w-5 h-5" />
-              <span>Скачать отчёт за смену</span>
-            </button>
-          </div>
         </div>
-        
       </div>
+
+      {/* Ошибки и сообщения */}
+      {error && (
+        <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/30 rounded-xl p-3 text-sm text-red-700 dark:text-red-400 flex items-center space-x-2">
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+      
+      {successMessage && (
+        <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900/30 rounded-xl p-3 text-sm text-green-700 dark:text-green-400 flex items-center space-x-2">
+          <CheckCircle className="w-4 h-4 shrink-0" />
+          <span>{successMessage}</span>
+        </div>
+      )}
     </div>
   );
 }

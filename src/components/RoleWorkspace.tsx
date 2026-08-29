@@ -1065,10 +1065,7 @@ useEffect(() => {
           </div>
 
         </div>
-      )}
-
-      {/* --- RENDER 4: COMMODITY CASHIER WORKSPACE --- */}
-     
+      )}     
 
     </div>
   );

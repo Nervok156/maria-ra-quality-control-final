@@ -846,6 +846,7 @@ export async function createReceipt(receipt: any) {
       change_amount: receipt.change_amount || 0,
       is_return: receipt.is_return || false,
       return_for_id: receipt.return_for_id || null,
+      shift_id: receipt.shift_id || null,
       created_at: new Date().toISOString()
     }])
     .select();

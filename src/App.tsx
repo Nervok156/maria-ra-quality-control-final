@@ -154,22 +154,22 @@ const [showUtilizationModal, setShowUtilizationModal] = useState(false);
         )}
 
         {/* Роль-специфичный контент */}
-        {currentUser.role === 'Товаровед-кассир' ? (
-          // ✅ НОВЫЙ КАССИРСКИЙ ТЕРМИНАЛ
-          <CashierWorkspace 
-            currentUser={currentUser}
-            onDataChange={handleDbUpdate}
-          />
-        ) : (
-          // ✅ РАБОЧЕЕ МЕСТО ДЛЯ ОСТАЛЬНЫХ РОЛЕЙ
-          <>
-            <RoleWorkspace 
-              currentUser={currentUser} 
-              onDbUpdate={handleDbUpdate}
-            />
+       {currentUser.role === 'Товаровед-кассир' ? (
+  // ✅ НОВЫЙ КАССИРСКИЙ ТЕРМИНАЛ
+  <CashierWorkspace 
+    currentUser={currentUser}
+    onDataChange={handleDbUpdate}
+  />
+) : (
+  // ✅ РАБОЧЕЕ МЕСТО ДЛЯ ОСТАЛЬНЫХ РОЛЕЙ
+  <>
+    <RoleWorkspace 
+      currentUser={currentUser} 
+      onDbUpdate={handleDbUpdate}
+    />
 
-            {/* Навигационные вкладки */}
-            <div className="flex flex-wrap gap-2 mb-6 no-print border-b border-gray-150 dark:border-slate-800 pb-4">
+    {/* Навигационные вкладки */}
+    <div className="flex flex-wrap gap-2 mb-6 no-print border-b border-gray-150 dark:border-slate-800 pb-4">
               <button
                 onClick={() => setActiveTab('freshness')}
                 className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-tight transition-all cursor-pointer ${
@@ -211,33 +211,33 @@ const [showUtilizationModal, setShowUtilizationModal] = useState(false);
             </div>
 
             {/* Контент вкладок */}
-            <motion.div
-              key={activeTab}
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.25, ease: 'easeOut' }}
-              className="focus:outline-none"
-            >
-              {activeTab === 'freshness' && (
-                <FreshnessControl 
-                  products={products} 
-                  setProducts={setProducts} 
-                  currentUser={currentUser}
-                  onDataChange={handleDbUpdate}
-                />
-              )}
-              {activeTab === 'fifo' && (
-                <FifoPlan 
-                  products={products} 
-                  currentUser={currentUser}
-                />
-              )}
-              {activeTab === 'database' && (
-                <DatabaseSchema />
-              )}
-            </motion.div>
-          </>
-        )}
+    <motion.div
+      key={activeTab}
+      initial={{ opacity: 0, y: 15 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25, ease: 'easeOut' }}
+      className="focus:outline-none"
+    >
+      {activeTab === 'freshness' && (
+        <FreshnessControl 
+          products={products} 
+          setProducts={setProducts} 
+          currentUser={currentUser}
+          onDataChange={handleDbUpdate}
+        />
+      )}
+      {activeTab === 'fifo' && (
+        <FifoPlan 
+          products={products} 
+          currentUser={currentUser}
+        />
+      )}
+      {activeTab === 'database' && (
+        <DatabaseSchema />
+      )}
+    </motion.div>
+  </>
+)}
       </main>
 
       {/* Footer */}
