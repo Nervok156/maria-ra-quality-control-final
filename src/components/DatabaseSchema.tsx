@@ -361,6 +361,9 @@ export default function DatabaseSchema() {
   };
 
   const handleDeleteRow = async (rowId: string) => {
+    if (!confirm(`Вы действительно хотите удалить эту запись из таблицы "${selectedTable.russianName}"?`)) {
+    return;
+  }
     const tableKey = selectedTable.name;
     
     try {

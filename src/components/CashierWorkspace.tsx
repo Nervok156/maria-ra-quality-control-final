@@ -180,8 +180,14 @@ export default function CashierWorkspace({ currentUser, onDataChange }: CashierW
   };
 
   const clearCart = () => {
-    setCart([]);
-  };
+  if (cart.length === 0) return;
+  
+  if (!confirm('⚠️ Вы действительно хотите очистить текущий чек? Все добавленные товары будут удалены.')) {
+    return;
+  }
+  
+  setCart([]);
+};
 
   const getTotal = () => {
     return cart.reduce((sum: number, item: CartItem) => sum + (item.totalPrice || 0), 0);

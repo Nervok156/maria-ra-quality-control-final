@@ -286,10 +286,11 @@ useEffect(() => {
   };
 
   const handleFireEmployee = async (empId: string, empName: string) => {
-    if (empId === currentUser.id) {
-      alert("Вы не можете уволить сами себя!");
-      return;
-    }
+  if (empId === currentUser.id) {
+    alert("Вы не можете уволить сами себя!");
+    return;
+  }
+  if (window.confirm(`⚠️ Вы уверены, что хотите деактивировать учетную запись сотрудника ${empName}?`)) 
     if (window.confirm(`Вы уверены, что хотите деактивировать учетную запись сотрудника ${empName}?`)) {
       const newState = { ...dbState };
       const emp = newState.employees.find(e => e.id === empId);
