@@ -95,10 +95,10 @@ export default function CashierWorkspace({ currentUser, onDataChange }: CashierW
 
   // ← НОВАЯ ФУНКЦИЯ: загрузка чеков за смену
   const loadShiftReceipts = async (shiftId: string) => {
-  try {
-    const { data: receipts, error } = await supabase
-      .from('receipts')
-      .select(`
+    try {
+      const { data: receipts, error } = await supabase
+        .from('receipts')
+        .select(`
         *,
         receipt_items(
           *,
@@ -110,26 +110,26 @@ export default function CashierWorkspace({ currentUser, onDataChange }: CashierW
           )
         )
       `)
-      .eq('shift_id', shiftId)
-      .order('created_at', { ascending: false });
-    
-    if (error) {
-      console.error('❌ Ошибка получения чеков смены:', error);
-      return;
+        .eq('shift_id', shiftId)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('❌ Ошибка получения чеков смены:', error);
+        return;
+      }
+
+      setShiftReceipts(receipts || []);
+
+      // ✅ Подсчёт количества чеков (только продажи, не возвраты)
+      const salesReceipts = receipts?.filter(r => !r.is_return) || [];
+      const totalReceipts = salesReceipts.length;
+      const totalRevenue = receipts?.reduce((sum, r) => sum + (r.total_amount || 0), 0) || 0;
+
+      console.log(`📊 Чеков за смену: ${totalReceipts}, Выручка: ${totalRevenue.toFixed(2)} ₽`);
+    } catch (error) {
+      console.error('❌ Ошибка загрузки чеков смены:', error);
     }
-    
-    setShiftReceipts(receipts || []);
-    
-    // ✅ Подсчёт количества чеков (только продажи, не возвраты)
-    const salesReceipts = receipts?.filter(r => !r.is_return) || [];
-    const totalReceipts = salesReceipts.length;
-    const totalRevenue = receipts?.reduce((sum, r) => sum + (r.total_amount || 0), 0) || 0;
-    
-    console.log(`📊 Чеков за смену: ${totalReceipts}, Выручка: ${totalRevenue.toFixed(2)} ₽`);
-  } catch (error) {
-    console.error('❌ Ошибка загрузки чеков смены:', error);
-  }
-};
+  };
 
 
 
@@ -175,24 +175,84 @@ export default function CashierWorkspace({ currentUser, onDataChange }: CashierW
   // ==========================================================
   const loadReceipts = async () => {
     try {
-      const data = await getTodayReceipts(currentUser.id);
-      setReceipts(data || []);
+      // Загружаем все чеки кассира (не только за сегодня)
+      const { data, error } = await supabase
+        .from('receipts')
+        .select(`
+        *,
+        receipt_items(
+          *,
+          products(
+            id,
+            name,
+            barcode,
+            base_price
+          )
+        )
+      `)
+        .eq('cashier_id', currentUser.id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('❌ Ошибка загрузки чеков:', error);
+        return;
+      }
+
+      setAllReceipts(data || []);
+
+      const filtered = filterReceiptsByPeriod(data || [], period);
+      setReceipts(filtered);
     } catch (error) {
       console.error('❌ Ошибка загрузки чеков:', error);
     }
   };
 
+  const filterReceiptsByPeriod = (receipts: any[], period: 'today' | 'week' | 'month') => {
+    const now = new Date();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    let startDate: Date;
+
+    switch (period) {
+      case 'today':
+        startDate = today;
+        break;
+      case 'week':
+        startDate = new Date(now);
+        startDate.setDate(now.getDate() - 7);
+        break;
+      case 'month':
+        startDate = new Date(now);
+        startDate.setMonth(now.getMonth() - 1);
+        break;
+      default:
+        startDate = today;
+    }
+
+    return receipts.filter(r => {
+      const receiptDate = new Date(r.created_at);
+      return receiptDate >= startDate;
+    });
+  };
+  const handlePeriodChange = (newPeriod: 'today' | 'week' | 'month') => {
+    setPeriod(newPeriod);
+    const filtered = filterReceiptsByPeriod(allReceipts, newPeriod);
+    setReceipts(filtered);
+  };
+
+  // 5. Обновить useEffect
   useEffect(() => {
     loadActiveShift();
     loadReceipts();
 
-    // ✅ Автообновление каждые 5 секунд
+    // Автообновление каждые 10 секунд
     const interval = setInterval(() => {
       if (activeShift) {
         loadShiftReceipts(activeShift.id);
       }
       loadReceipts();
-    }, 5000);
+    }, 10000);
 
     return () => clearInterval(interval);
   }, []);
@@ -503,66 +563,71 @@ ${isReturn ? '' : '\n    Товар надлежащего качества об
 
 
   const handleDownloadShiftReport = () => {
-    if (!receipts || receipts.length === 0) {
-      setError('Нет чеков за сегодня');
-      setTimeout(() => setError(null), 3000);
-      return;
-    }
+  if (!receipts || receipts.length === 0) {
+    setError('Нет чеков за выбранный период');
+    setTimeout(() => setError(null), 3000);
+    return;
+  }
 
-    const date = new Date().toLocaleDateString('ru-RU');
-    const totalRevenue = receipts.reduce((sum: number, r: any) => sum + (r.total_amount || 0), 0);
-    const totalItems = receipts.reduce((sum: number, r: any) => {
-      const items = r.receipt_items || [];
-      return sum + items.reduce((itemSum: number, item: any) => itemSum + (item.quantity || 0), 0);
-    }, 0);
-
-    let text = `
+  const date = new Date().toLocaleDateString('ru-RU');
+  const periodLabel = period === 'today' ? 'сегодня' : period === 'week' ? 'неделю' : 'месяц';
+  
+  const totalRevenue = receipts.reduce((sum: number, r: any) => sum + (r.total_amount || 0), 0);
+  const totalItems = receipts.reduce((sum: number, r: any) => {
+    const items = r.receipt_items || [];
+    return sum + items.reduce((itemSum: number, item: any) => itemSum + Math.abs(item.quantity || 0), 0);
+  }, 0);
+  const returnsCount = receipts.filter((r: any) => r.is_return).length;
+  
+  let text = `
 ==================================================
     ТС «Мария-Ра» - Филиал №142
     г. Барнаул, пр. Ленина, 54
 ==================================================
-    ОТЧЁТ ЗА СМЕНУ
+    ОТЧЁТ ЗА ${periodLabel.toUpperCase()}
     Дата: ${date}
     Кассир: ${currentUser.name}
 ==================================================
     ИТОГИ:
     Всего чеков: ${receipts.length}
+    Возвратов: ${returnsCount}
     Всего товаров (шт.): ${totalItems}
-    Общая выручка: ${totalRevenue.toFixed(2)} ₽
+    Итоговая выручка: ${totalRevenue.toFixed(2)} ₽
 ==================================================
-    ЧЕКИ ЗА СМЕНУ:
+    ЧЕКИ:
 `;
 
-    receipts.forEach((receipt: any, index: number) => {
-      const items = receipt.receipt_items || [];
-      const totalQtyInReceipt = items.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0);
-
-      text += `
-${index + 1}. Чек №${receipt.receipt_number}
-   Время: ${new Date(receipt.created_at).toLocaleTimeString('ru-RU')}
+  receipts.forEach((receipt: any, index: number) => {
+    const items = receipt.receipt_items || [];
+    const totalQtyInReceipt = items.reduce((sum: number, item: any) => sum + Math.abs(item.quantity || 0), 0);
+    const isReturn = receipt.is_return ? ' [ВОЗВРАТ]' : '';
+    
+    text += `
+${index + 1}. Чек №${receipt.receipt_number}${isReturn}
+   Время: ${new Date(receipt.created_at).toLocaleString('ru-RU')}
    Товаров (шт.): ${totalQtyInReceipt}
    Сумма: ${receipt.total_amount?.toFixed(2) || '0.00'} ₽
-   Оплата: ${receipt.payment_method === 'cash' ? 'Наличные' : 'Карта'}
 `;
-    });
+  });
 
-    text += `
+  text += `
 ==================================================
     КОНЕЦ ОТЧЁТА
     Спасибо за работу!
 ==================================================
     `;
 
-    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `отчёт_за_смену_${date}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `отчёт_за_${periodLabel}_${date.replace(/\./g, '-')}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+};
+
 
   // ==========================================================
   // ПОИСК ЧЕКОВ ДЛЯ ВОЗВРАТА
@@ -686,26 +751,26 @@ ${index + 1}. Чек №${receipt.receipt_number}
     {activeShift ? (
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
-  <span className="text-xs font-bold text-green-600 dark:text-green-400 flex items-center">
-    <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse mr-2"></span>
-    СМЕНА АКТИВНА
-  </span>
-  <span className="text-xs text-gray-500 dark:text-slate-400 block mt-1">
-    Начало: {new Date(activeShift.start_time).toLocaleString('ru-RU')}
-  </span>
-  <span className="text-xs text-gray-500 dark:text-slate-400 block">
-    Начальный остаток: {activeShift.start_cash?.toFixed(2) || '0.00'} ₽
-  </span>
-  <span className="text-xs text-gray-500 dark:text-slate-400 block">
-    Чеков за смену: {shiftReceipts?.filter(r => !r.is_return).length || 0}
-  </span>
-  <span className="text-xs text-gray-500 dark:text-slate-400 block">
-    Выручка за смену: {shiftReceipts?.reduce((sum, r) => sum + (r.total_amount || 0), 0)?.toFixed(2) || '0.00'} ₽
-  </span>
-  <span className="text-xs text-gray-500 dark:text-slate-400 block">
-    Возвратов: {shiftReceipts?.filter(r => r.is_return).length || 0}
-  </span>
-</div>
+          <span className="text-xs font-bold text-green-600 dark:text-green-400 flex items-center">
+            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse mr-2"></span>
+            СМЕНА АКТИВНА
+          </span>
+          <span className="text-xs text-gray-500 dark:text-slate-400 block mt-1">
+            Начало: {new Date(activeShift.start_time).toLocaleString('ru-RU')}
+          </span>
+          <span className="text-xs text-gray-500 dark:text-slate-400 block">
+            Начальный остаток: {activeShift.start_cash?.toFixed(2) || '0.00'} ₽
+          </span>
+          <span className="text-xs text-gray-500 dark:text-slate-400 block">
+            Чеков за смену: {shiftReceipts?.filter(r => !r.is_return).length || 0}
+          </span>
+          <span className="text-xs text-gray-500 dark:text-slate-400 block">
+            Выручка за смену: {shiftReceipts?.reduce((sum, r) => sum + (r.total_amount || 0), 0)?.toFixed(2) || '0.00'} ₽
+          </span>
+          <span className="text-xs text-gray-500 dark:text-slate-400 block">
+            Возвратов: {shiftReceipts?.filter(r => r.is_return).length || 0}
+          </span>
+        </div>
         <div className="flex gap-2 w-full sm:w-auto">
           <input
             type="number"
@@ -753,6 +818,7 @@ ${index + 1}. Чек №${receipt.receipt_number}
     )}
   </div>
   const [period, setPeriod] = useState<'today' | 'week' | 'month'>('today');
+  const [allReceipts, setAllReceipts] = useState<any[]>([]);
   <div className="flex gap-1 mb-3">
     <button
       onClick={() => setPeriod('today')}
@@ -1052,8 +1118,39 @@ ${index + 1}. Чек №${receipt.receipt_number}
                 📋 История чеков
               </h4>
               <span className="text-xs text-gray-400">
-                {activeShift ? `Смена: ${shiftReceipts?.length || 0} чеков` : 'Смена не активна'}
+                {activeShift ? `Смена: ${shiftReceipts?.filter(r => !r.is_return).length || 0} чеков` : 'Смена не активна'}
               </span>
+            </div>
+
+            {/* ✅ ПЕРЕКЛЮЧАТЕЛЬ ПЕРИОДОВ */}
+            <div className="flex gap-1 mb-4">
+              <button
+                onClick={() => handlePeriodChange('today')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${period === 'today'
+                    ? 'bg-green-600 text-white'
+                    : 'bg-gray-200 dark:bg-slate-800 text-gray-700 dark:text-slate-300 hover:bg-gray-300 dark:hover:bg-slate-700'
+                  }`}
+              >
+                Сегодня
+              </button>
+              <button
+                onClick={() => handlePeriodChange('week')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${period === 'week'
+                    ? 'bg-green-600 text-white'
+                    : 'bg-gray-200 dark:bg-slate-800 text-gray-700 dark:text-slate-300 hover:bg-gray-300 dark:hover:bg-slate-700'
+                  }`}
+              >
+                Неделя
+              </button>
+              <button
+                onClick={() => handlePeriodChange('month')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${period === 'month'
+                    ? 'bg-green-600 text-white'
+                    : 'bg-gray-200 dark:bg-slate-800 text-gray-700 dark:text-slate-300 hover:bg-gray-300 dark:hover:bg-slate-700'
+                  }`}
+              >
+                Месяц
+              </button>
             </div>
 
             {/* Кнопка возврата */}
@@ -1069,8 +1166,8 @@ ${index + 1}. Чек №${receipt.receipt_number}
                 }}
                 disabled={!activeShift}
                 className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${returnMode
-                  ? 'bg-red-600 hover:bg-red-700 text-white'
-                  : 'bg-gray-200 dark:bg-slate-800 hover:bg-gray-300 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-300'
+                    ? 'bg-red-600 hover:bg-red-700 text-white'
+                    : 'bg-gray-200 dark:bg-slate-800 hover:bg-gray-300 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-300'
                   } ${!activeShift ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 {returnMode ? '❌ Отмена возврата' : '🔄 Возврат товара'}
@@ -1184,73 +1281,106 @@ ${index + 1}. Чек №${receipt.receipt_number}
             )}
 
             {/* Список чеков */}
-            <div className="space-y-3 max-h-[350px] overflow-y-auto">
-              {(!receipts || receipts.length === 0) ? (
-                <div className="text-center py-10 text-gray-400 text-sm">
-                  Нет чеков
-                </div>
-              ) : (
-                receipts.map((receipt) => (
-                  <div
-                    key={receipt.id}
-                    className="bg-gray-50 dark:bg-slate-800 rounded-lg p-4 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
-                  >
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <span className="text-sm font-bold text-gray-900 dark:text-slate-100 block">
-                          Чек №{receipt.receipt_number}
-                          {receipt.is_return && (
-                            <span className="ml-2 text-xs text-red-500 font-bold">(Возврат)</span>
-                          )}
-                        </span>
-                        <span className="text-xs text-gray-400">
-                          {new Date(receipt.created_at).toLocaleString('ru-RU')}
-                        </span>
-                        <div className="mt-1 space-y-0.5">
-                          {(receipt.receipt_items || []).map((item: any, idx: number) => (
-                            <div key={idx} className="text-xs text-gray-600 dark:text-gray-400 flex justify-between">
-                              <span className="truncate max-w-[180px]">
-                                {item.products?.name || 'Товар'} × {item.quantity}
-                              </span>
-                              <span className="font-medium">{item.total_price?.toFixed(2) || '0.00'} ₽</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="text-right shrink-0 ml-4">
-                        <span className="text-base font-bold text-green-600 dark:text-green-400">
-                          {receipt.total_amount?.toFixed(2) || '0.00'} ₽
-                        </span>
-                        <div className="flex gap-1 mt-1">
-                          <button
-                            onClick={() => handleDownloadReceipt(receipt)}
-                            className="px-3 py-1.5 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 rounded text-xs font-bold hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors flex items-center space-x-1"
-                            title="Скачать чек"
-                          >
-                            <Download className="w-4 h-4" />
-                            <span>Скачать</span>
-                          </button>
-                        </div>
-                      </div>
+             <div className="space-y-3 max-h-[350px] overflow-y-auto">
+    {(!receipts || receipts.length === 0) ? (
+      <div className="text-center py-10 text-gray-400 text-sm">
+        {period === 'today' && 'Нет чеков за сегодня'}
+        {period === 'week' && 'Нет чеков за неделю'}
+        {period === 'month' && 'Нет чеков за месяц'}
+      </div>
+    ) : (
+      receipts.map((receipt) => {
+        const isReturn = receipt.is_return === true;
+        const totalAmount = receipt.total_amount || 0;
+        const isNegative = totalAmount < 0;
+        
+        return (
+          <div
+            key={receipt.id}
+            className={`bg-gray-50 dark:bg-slate-800 rounded-lg p-4 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors ${
+              isReturn ? 'border-l-4 border-red-500' : 'border-l-4 border-green-500'
+            }`}
+          >
+            <div className="flex justify-between items-start">
+              <div>
+                <span className="text-sm font-bold text-gray-900 dark:text-slate-100 block">
+                  Чек №{receipt.receipt_number}
+                  {isReturn && (
+                    <span className="ml-2 text-xs text-red-500 font-bold">(Возврат)</span>
+                  )}
+                </span>
+                <span className="text-xs text-gray-400">
+                  {new Date(receipt.created_at).toLocaleString('ru-RU')}
+                </span>
+                <div className="mt-1 space-y-0.5">
+                  {(receipt.receipt_items || []).map((item: any, idx: number) => (
+                    <div key={idx} className="text-xs text-gray-600 dark:text-gray-400 flex justify-between">
+                      <span className="truncate max-w-[180px]">
+                        {item.products?.name || 'Товар'} × {Math.abs(item.quantity)}
+                      </span>
+                      <span className={`font-medium ${item.total_price < 0 ? 'text-red-500' : ''}`}>
+                        {item.total_price?.toFixed(2) || '0.00'} ₽
+                      </span>
                     </div>
-                  </div>
-                ))
-              )}
-            </div>
-
-            {/* Кнопка отчёта */}
-            <div className="mt-4 pt-4 border-t border-gray-100 dark:border-slate-800">
-              <button
-                onClick={handleDownloadShiftReport}
-                disabled={!activeShift || receipts.length === 0}
-                className={`w-full py-3 bg-gray-200 dark:bg-slate-800 hover:bg-gray-300 dark:hover:bg-slate-700 rounded-lg text-sm font-bold transition-colors flex items-center justify-center space-x-2 ${!activeShift || receipts.length === 0 ? 'opacity-50 cursor-not-allowed' : ''
-                  }`}
-              >
-                <Printer className="w-5 h-5" />
-                <span>Скачать отчёт за смену</span>
-              </button>
+                  ))}
+                </div>
+              </div>
+              <div className="text-right shrink-0 ml-4">
+                <span className={`text-base font-bold ${isNegative ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+                  {totalAmount.toFixed(2)} ₽
+                </span>
+                <div className="flex gap-1 mt-1">
+                  <button
+                    onClick={() => handleDownloadReceipt(receipt)}
+                    className="px-3 py-1.5 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 rounded text-xs font-bold hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors flex items-center space-x-1"
+                    title="Скачать чек"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>Скачать</span>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
+        );
+      })
+    )}
+  </div>
+  
+  {/* Итог за период */}
+  {receipts.length > 0 && (
+    <div className="mt-4 pt-4 border-t border-gray-100 dark:border-slate-800">
+      <div className="flex justify-between items-center text-xs font-bold">
+        <span className="text-gray-500 dark:text-slate-400">Итого за период:</span>
+        <span className={`text-base font-black ${
+          receipts.reduce((sum, r) => sum + (r.total_amount || 0), 0) < 0 
+            ? 'text-red-600 dark:text-red-400' 
+            : 'text-green-600 dark:text-green-400'
+        }`}>
+          {receipts.reduce((sum, r) => sum + (r.total_amount || 0), 0).toFixed(2)} ₽
+        </span>
+      </div>
+      <div className="flex justify-between items-center text-xs text-gray-400 mt-1">
+        <span>Чеков: {receipts.length}</span>
+        <span>Возвратов: {receipts.filter(r => r.is_return).length}</span>
+      </div>
+    </div>
+  )}
+  
+  {/* Кнопка отчёта */}
+  <div className="mt-4 pt-4 border-t border-gray-100 dark:border-slate-800">
+    <button
+      onClick={handleDownloadShiftReport}
+      disabled={!activeShift || receipts.length === 0}
+      className={`w-full py-3 bg-gray-200 dark:bg-slate-800 hover:bg-gray-300 dark:hover:bg-slate-700 rounded-lg text-sm font-bold transition-colors flex items-center justify-center space-x-2 ${
+        !activeShift || receipts.length === 0 ? 'opacity-50 cursor-not-allowed' : ''
+      }`}
+    >
+      <Printer className="w-5 h-5" />
+      <span>Скачать отчёт за {period === 'today' ? 'сегодня' : period === 'week' ? 'неделю' : 'месяц'}</span>
+    </button>
+  </div>
+</div>
 
         </div>
       </div>
