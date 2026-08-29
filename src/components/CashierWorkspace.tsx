@@ -746,8 +746,74 @@ const [period, setPeriod] = useState<'today' | 'week' | 'month'>('today');
       <h3 className="text-base font-black text-gray-900 dark:text-slate-100 uppercase tracking-tight">
         🧾 Кассовый терминал
       </h3>
-      
-      {error && (
+       {/* ==========================================================
+          БЛОК УПРАВЛЕНИЯ СМЕНОЙ - ДОБАВИТЬ ЭТУ ЧАСТЬ
+          ========================================================== */}
+      <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-xl p-4 mb-4">
+        {activeShift ? (
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div>
+              <span className="text-xs font-bold text-green-600 dark:text-green-400 flex items-center">
+                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse mr-2"></span>
+                СМЕНА АКТИВНА
+              </span>
+              <span className="text-xs text-gray-500 dark:text-slate-400 block mt-1">
+                Начало: {new Date(activeShift.start_time).toLocaleString('ru-RU')}
+              </span>
+              <span className="text-xs text-gray-500 dark:text-slate-400 block">
+                Начальный остаток: {activeShift.start_cash?.toFixed(2) || '0.00'} ₽
+              </span>
+              <span className="text-xs text-gray-500 dark:text-slate-400 block">
+                Чеков за смену: {activeShift.receipts_count || 0}
+              </span>
+            </div>
+            <div className="flex gap-2 w-full sm:w-auto">
+              <input
+                type="number"
+                placeholder="Фактическая выручка ₽"
+                value={shiftEndCash || ''}
+                onChange={(e) => setShiftEndCash(parseFloat(e.target.value) || 0)}
+                className="flex-1 sm:flex-none bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-green-500"
+                step="0.01"
+              />
+              <button
+                onClick={handleCloseShift}
+                disabled={loading}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold transition-colors disabled:opacity-50 whitespace-nowrap"
+              >
+                {loading ? '...' : 'Закрыть смену'}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div>
+              <span className="text-xs font-bold text-gray-400 dark:text-slate-500">СМЕНА НЕ АКТИВНА</span>
+              <span className="text-xs text-gray-400 dark:text-slate-500 block mt-1">
+                Начните смену для работы с кассой
+              </span>
+            </div>
+            <div className="flex gap-2 w-full sm:w-auto">
+              <input
+                type="number"
+                placeholder="Начальный остаток ₽"
+                value={shiftStartCash || ''}
+                onChange={(e) => setShiftStartCash(parseFloat(e.target.value) || 0)}
+                className="flex-1 sm:flex-none bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-green-500"
+                step="0.01"
+              />
+              <button
+                onClick={handleStartShift}
+                disabled={loading}
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-bold transition-colors disabled:opacity-50 whitespace-nowrap"
+              >
+                {loading ? '...' : 'Начать смену'}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+     {error && (
         <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/30 rounded-xl p-3 text-sm text-red-700 dark:text-red-400 flex items-center space-x-2">
           <AlertCircle className="w-4 h-4 shrink-0" />
           <span>{error}</span>
@@ -920,7 +986,6 @@ const [period, setPeriod] = useState<'today' | 'week' | 'month'>('today');
               Сегодня: {receipts?.length || 0} чеков
             </span>
           </div>
-          
           {/* ✅ КНОПКА ВОЗВРАТА */}
           <div className="flex gap-2 mb-4">
             <button
