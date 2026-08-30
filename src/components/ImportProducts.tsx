@@ -32,6 +32,54 @@ export default function ImportProducts({ onImportComplete, onClose }: ImportProd
   const [message, setMessage] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // ✅ Функция парсинга дат из разных форматов
+  const parseDate = (value: any): string => {
+    if (!value) return '';
+    
+    // Если это число (серийный номер Excel)
+    if (typeof value === 'number') {
+      // Excel даты начинаются с 1 января 1900
+      const date = new Date((value - 25569) * 86400 * 1000);
+      return date.toISOString().split('T')[0]; // YYYY-MM-DD
+    }
+    
+    // Если это строка
+    if (typeof value === 'string') {
+      // Проверяем формат ДД.ММ.ГГГГ
+      const dotFormat = value.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+      if (dotFormat) {
+        const [, day, month, year] = dotFormat;
+        return `${year}-${month}-${day}`;
+      }
+      
+      // Проверяем формат ДД/ММ/ГГГГ
+      const slashFormat = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+      if (slashFormat) {
+        const [, day, month, year] = slashFormat;
+        return `${year}-${month}-${day}`;
+      }
+      
+      // Проверяем формат ГГГГ-ММ-ДД (уже правильный)
+      const isoFormat = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (isoFormat) {
+        return value;
+      }
+      
+      // Если ничего не подошло, пробуем создать дату
+      const date = new Date(value);
+      if (!isNaN(date.getTime())) {
+        return date.toISOString().split('T')[0];
+      }
+    }
+    
+    // Если это объект Date
+    if (value instanceof Date) {
+      return value.toISOString().split('T')[0];
+    }
+    
+    return value;
+  };
+
   // Шаблон для скачивания
   const downloadTemplate = () => {
     const headers = [
@@ -56,7 +104,7 @@ export default function ImportProducts({ onImportComplete, onClose }: ImportProd
     XLSX.writeFile(wb, 'шаблон_импорта_товаров.xlsx');
   };
 
-  // Обработка выбора файла
+  // Обработка выбора файла (ОБНОВЛЁННАЯ ВЕРСИЯ)
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (!selectedFile) return;
@@ -100,6 +148,18 @@ export default function ImportProducts({ onImportComplete, onClose }: ImportProd
             return;
           }
 
+          // ✅ Парсим даты
+          const expirationDate = parseDate(row['Срок годности (ГГГГ-ММ-ДД, обязательно)']);
+          const manufactureDate = row['Дата изготовления (ГГГГ-ММ-ДД)'] 
+            ? parseDate(row['Дата изготовления (ГГГГ-ММ-ДД)']) 
+            : undefined;
+
+          // Проверяем, что дата корректна
+          if (!expirationDate || expirationDate === 'Invalid Date') {
+            errors.push(`Строка ${rowNum}: неверный формат даты "${row['Срок годности (ГГГГ-ММ-ДД, обязательно)']}"`);
+            return;
+          }
+
           const category = row['Категория'] || 'other';
           const validCategories = ['dairy', 'bakery', 'meat_sausage', 'grocery', 'beverages', 'confectionery', 'other'];
           if (!validCategories.includes(category)) {
@@ -120,8 +180,8 @@ export default function ImportProducts({ onImportComplete, onClose }: ImportProd
             category: category as ProductCategory,
             price: Number(row['Цена (обязательно)']),
             quantity: Number(row['Количество (обязательно)']),
-            manufactureDate: row['Дата изготовления (ГГГГ-ММ-ДД)'] ? String(row['Дата изготовления (ГГГГ-ММ-ДД)']).trim() : undefined,
-            expirationDate: String(row['Срок годности (ГГГГ-ММ-ДД, обязательно)']).trim(),
+            manufactureDate: manufactureDate,
+            expirationDate: expirationDate,
             location: location
           });
         });
@@ -147,7 +207,7 @@ export default function ImportProducts({ onImportComplete, onClose }: ImportProd
     reader.readAsArrayBuffer(selectedFile);
   };
 
-  // Импорт данных (ОБНОВЛЁННАЯ ВЕРСИЯ)
+  // Импорт данных
   const handleImport = async () => {
     if (previewData.length === 0) {
       setStatus('error');
@@ -170,7 +230,6 @@ export default function ImportProducts({ onImportComplete, onClose }: ImportProd
       try {
         setProgress(((i + 1) / previewData.length) * 100);
 
-        // ✅ Проверяем, существует ли товар с таким штрихкодом
         const { data: existingProducts, error: searchError } = await supabase
           .from('products')
           .select('id, name, barcode')
@@ -184,12 +243,10 @@ export default function ImportProducts({ onImportComplete, onClose }: ImportProd
         let productId: string;
 
         if (existingProducts) {
-          // Товар уже существует → используем его ID
           productId = existingProducts.id;
           skippedCount++;
           console.log(`📦 Товар "${row.name}" уже существует, добавляем только партию`);
         } else {
-          // Товара нет → создаём новый
           const product = await createProduct({
             barcode: row.barcode,
             name: row.name,
@@ -205,7 +262,6 @@ export default function ImportProducts({ onImportComplete, onClose }: ImportProd
           successCount++;
         }
 
-        // ✅ Создаём партию (обновляем количество)
         await createBatch({
           product_id: productId,
           store_id: 'store_1',
