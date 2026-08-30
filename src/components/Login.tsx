@@ -231,7 +231,14 @@ const todayStr = getLocalTodayStr();
 const isDirector = employee.role_id === 'role_dir';
 
 if (!isDirector) {
-  // Проверяем расписание на сегодня по конкретной дате
+  // Получаем сегодняшнюю дату в локальном часовом поясе
+  const todayStr = getTodayISOString();
+  
+  console.log('📅 Сегодня (локальное время):', todayStr);
+  console.log('🕐 Текущее время (локальное):', new Date().toLocaleString('ru-RU'));
+  console.log('👤 Сотрудник:', employee.name, 'ID:', employee.id);
+  
+  // Проверяем расписание на сегодня
   const { data: schedule, error: scheduleError } = await supabase
     .from('employee_schedules')
     .select('*')
@@ -243,9 +250,11 @@ if (!isDirector) {
     console.error('❌ Ошибка проверки расписания:', scheduleError);
   }
 
+  console.log('📋 Найденное расписание:', schedule);
+
   // Если расписание не найдено или статус "Выходной"
   if (!schedule || schedule.status === 'Выходной') {
-    setError('❌ Сегодня у вас выходной! Обратитесь к администратору.');
+    setError(`❌ Сегодня (${todayStr}) у вас выходной! Обратитесь к администратору.`);
     setIsLoading(false);
     return;
   }
