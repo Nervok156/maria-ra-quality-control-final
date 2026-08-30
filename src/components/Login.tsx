@@ -4,6 +4,7 @@ import { Sun, ShieldAlert, KeyRound, User, Eye, EyeOff, LogIn } from 'lucide-rea
 import { Employee } from '../types';
 import { getEmployeeWithPasswordHash, verifyPassword } from '../api/databaseAPI';
 import { supabase } from '../lib/supabaseClient';
+import { getTodayISOString } from '../utils/dateUtils';
 
 interface LoginProps {
   onLogin: (employee: Employee) => void;
@@ -217,9 +218,7 @@ export default function Login({ onLogin }: LoginProps) {
         return;
       }
       // ✅ Проверяем, работает ли сегодня сотрудник
-const today = new Date();
-today.setHours(0, 0, 0, 0);
-const todayStr = today.toISOString().split('T')[0];
+const todayStr = getTodayISOString();
 
 // Директор может войти в любой день
 const isDirector = employee.role_id === 'role_dir';

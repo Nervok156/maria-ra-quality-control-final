@@ -12,6 +12,7 @@ import { getActiveProducts } from './api/databaseAPI';
 import { 
   Terminal, ShieldCheck, RefreshCw, Database
 } from 'lucide-react';
+import { formatLocalDate } from './utils/dateUtils';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'freshness' | 'fifo' | 'database'>('freshness');

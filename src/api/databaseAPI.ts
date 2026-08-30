@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabaseClient';
 import { Product, ProductCategory } from '../types';
 import * as bcrypt from 'bcryptjs';
+import { getNowISOString } from '../utils/dateUtils';
 
 // ==========================================================
 // 1. РАБОТА С КАТЕГОРИЯМИ
@@ -232,7 +233,7 @@ export async function createWriteoffAct(act: any) {
       creator_id: act.creator_id,
       approved_by_id: act.approved_by_id || null,
       is_exported_to_1c: act.is_exported_to_1c || false,
-      created_at: new Date().toISOString()
+      created_at: getNowISOString()
     }])
     .select();
   
@@ -1211,7 +1212,7 @@ export async function startShift(cashierId: string, storeId: string = 'store_1',
       id: shiftId,
       cashier_id: cashierId,
       store_id: storeId,
-      start_time: new Date().toISOString(), // ← это локальное время, но в Supabase сохраняется UTC
+      start_time: getNowISOString(),
       start_cash: startCash,
       is_active: true,
       receipts_count: 0,
