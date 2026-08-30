@@ -32,47 +32,38 @@ export default function ImportProducts({ onImportComplete, onClose }: ImportProd
   const [message, setMessage] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // ✅ Функция парсинга дат из разных форматов
   const parseDate = (value: any): string => {
     if (!value) return '';
     
-    // Если это число (серийный номер Excel)
     if (typeof value === 'number') {
-      // Excel даты начинаются с 1 января 1900
       const date = new Date((value - 25569) * 86400 * 1000);
-      return date.toISOString().split('T')[0]; // YYYY-MM-DD
+      return date.toISOString().split('T')[0];
     }
     
-    // Если это строка
     if (typeof value === 'string') {
-      // Проверяем формат ДД.ММ.ГГГГ
       const dotFormat = value.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
       if (dotFormat) {
         const [, day, month, year] = dotFormat;
         return `${year}-${month}-${day}`;
       }
       
-      // Проверяем формат ДД/ММ/ГГГГ
       const slashFormat = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
       if (slashFormat) {
         const [, day, month, year] = slashFormat;
         return `${year}-${month}-${day}`;
       }
       
-      // Проверяем формат ГГГГ-ММ-ДД (уже правильный)
       const isoFormat = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
       if (isoFormat) {
         return value;
       }
       
-      // Если ничего не подошло, пробуем создать дату
       const date = new Date(value);
       if (!isNaN(date.getTime())) {
         return date.toISOString().split('T')[0];
       }
     }
     
-    // Если это объект Date
     if (value instanceof Date) {
       return value.toISOString().split('T')[0];
     }
@@ -80,7 +71,7 @@ export default function ImportProducts({ onImportComplete, onClose }: ImportProd
     return value;
   };
 
-  // Шаблон для скачивания
+  // ✅ Обновлённый шаблон с правильными заголовками
   const downloadTemplate = () => {
     const headers = [
       'Штрихкод (обязательно)',
@@ -104,7 +95,7 @@ export default function ImportProducts({ onImportComplete, onClose }: ImportProd
     XLSX.writeFile(wb, 'шаблон_импорта_товаров.xlsx');
   };
 
-  // Обработка выбора файла (ОБНОВЛЁННАЯ ВЕРСИЯ)
+  // ✅ Обновлённый парсинг с правильными названиями колонок
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (!selectedFile) return;
@@ -121,68 +112,75 @@ export default function ImportProducts({ onImportComplete, onClose }: ImportProd
         const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
         const jsonData = XLSX.utils.sheet_to_json(firstSheet);
 
+        console.log('📋 Заголовки из файла:', Object.keys(jsonData[0] || {}));
+
         const parsedData: ImportRow[] = [];
         const errors: string[] = [];
 
         jsonData.forEach((row: any, index: number) => {
           const rowNum = index + 2;
 
-          if (!row['Штрихкод (обязательно)']) {
+          const barcode = row['Штрихкод (обязательно)'];
+          const name = row['Название товара (обязательно)'];
+          const category = row['Категория (dairy/bakery/meat_sausage/grocery/beverages/confectionery/other)'] || 'other';
+          const price = row['Цена (обязательно)'];
+          const quantity = row['Количество (обязательно)'];
+          const manufactureDateRaw = row['Дата изготовления (ГГГГ-ММ-ДД)'];
+          const expirationDateRaw = row['Срок годности (ГГГГ-ММ-ДД, обязательно)'];
+          const location = row['Локация (shelf_1/shelf_2/shelf_3/shelf_4/shelf_5)'] || 'shelf_1';
+
+          if (!barcode) {
             errors.push(`Строка ${rowNum}: отсутствует штрихкод`);
             return;
           }
-          if (!row['Название товара (обязательно)']) {
+          if (!name) {
             errors.push(`Строка ${rowNum}: отсутствует название товара`);
             return;
           }
-          if (!row['Цена (обязательно)']) {
+          if (!price) {
             errors.push(`Строка ${rowNum}: отсутствует цена`);
             return;
           }
-          if (!row['Количество (обязательно)']) {
+          if (!quantity) {
             errors.push(`Строка ${rowNum}: отсутствует количество`);
             return;
           }
-          if (!row['Срок годности (ГГГГ-ММ-ДД, обязательно)']) {
+          if (!expirationDateRaw) {
             errors.push(`Строка ${rowNum}: отсутствует срок годности`);
             return;
           }
 
-          // ✅ Парсим даты
-          const expirationDate = parseDate(row['Срок годности (ГГГГ-ММ-ДД, обязательно)']);
-          const manufactureDate = row['Дата изготовления (ГГГГ-ММ-ДД)'] 
-            ? parseDate(row['Дата изготовления (ГГГГ-ММ-ДД)']) 
-            : undefined;
+          const expirationDate = parseDate(expirationDateRaw);
+          const manufactureDate = manufactureDateRaw ? parseDate(manufactureDateRaw) : undefined;
 
-          // Проверяем, что дата корректна
           if (!expirationDate || expirationDate === 'Invalid Date') {
-            errors.push(`Строка ${rowNum}: неверный формат даты "${row['Срок годности (ГГГГ-ММ-ДД, обязательно)']}"`);
+            errors.push(`Строка ${rowNum}: неверный формат даты "${expirationDateRaw}"`);
             return;
           }
 
-          const category = row['Категория'] || 'other';
           const validCategories = ['dairy', 'bakery', 'meat_sausage', 'grocery', 'beverages', 'confectionery', 'other'];
-          if (!validCategories.includes(category)) {
-            errors.push(`Строка ${rowNum}: неверная категория "${category}"`);
+          const categoryValue = String(category).trim().toLowerCase();
+          if (!validCategories.includes(categoryValue)) {
+            errors.push(`Строка ${rowNum}: неверная категория "${category}". Допустимые: ${validCategories.join(', ')}`);
             return;
           }
 
-          const location = row['Локация (shelf_1/shelf_2/shelf_3/shelf_4/shelf_5)'] || 'shelf_1';
           const validLocations = ['shelf_1', 'shelf_2', 'shelf_3', 'shelf_4', 'shelf_5'];
-          if (!validLocations.includes(location)) {
-            errors.push(`Строка ${rowNum}: неверная локация "${location}"`);
+          const locationValue = String(location).trim();
+          if (!validLocations.includes(locationValue)) {
+            errors.push(`Строка ${rowNum}: неверная локация "${location}". Допустимые: ${validLocations.join(', ')}`);
             return;
           }
 
           parsedData.push({
-            barcode: String(row['Штрихкод (обязательно)']).trim(),
-            name: String(row['Название товара (обязательно)']).trim(),
-            category: category as ProductCategory,
-            price: Number(row['Цена (обязательно)']),
-            quantity: Number(row['Количество (обязательно)']),
+            barcode: String(barcode).trim(),
+            name: String(name).trim(),
+            category: categoryValue as ProductCategory,
+            price: Number(price),
+            quantity: Number(quantity),
             manufactureDate: manufactureDate,
             expirationDate: expirationDate,
-            location: location
+            location: locationValue
           });
         });
 
@@ -306,7 +304,6 @@ export default function ImportProducts({ onImportComplete, onClose }: ImportProd
     <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
       <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden border border-gray-100 dark:border-slate-800 shadow-2xl">
         
-        {/* Заголовок */}
         <div className="flex justify-between items-center p-6 border-b border-gray-100 dark:border-slate-800">
           <div className="flex items-center space-x-3">
             <div className="p-2 bg-green-100 dark:bg-green-950/40 rounded-xl">
@@ -329,9 +326,8 @@ export default function ImportProducts({ onImportComplete, onClose }: ImportProd
           </button>
         </div>
 
-        {/* Контент */}
         <div className="p-6 overflow-y-auto max-h-[calc(90vh-180px)]">
-          {/* Шаг 1: Скачать шаблон */}
+          {/* Шаг 1 */}
           <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/30 rounded-xl p-4 mb-6">
             <h4 className="text-sm font-bold text-blue-800 dark:text-blue-300 mb-2">
               📋 Шаг 1: Скачайте шаблон
@@ -348,7 +344,7 @@ export default function ImportProducts({ onImportComplete, onClose }: ImportProd
             </button>
           </div>
 
-          {/* Шаг 2: Загрузить файл */}
+          {/* Шаг 2 */}
           <div className="bg-gray-50 dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-xl p-4 mb-6">
             <h4 className="text-sm font-bold text-gray-700 dark:text-slate-300 mb-2">
               📤 Шаг 2: Загрузите заполненный файл
@@ -408,7 +404,7 @@ export default function ImportProducts({ onImportComplete, onClose }: ImportProd
             </div>
           )}
 
-          {/* Предпросмотр данных */}
+          {/* Предпросмотр */}
           {previewData.length > 0 && (
             <div>
               <h4 className="text-sm font-bold text-gray-700 dark:text-slate-300 mb-2">
