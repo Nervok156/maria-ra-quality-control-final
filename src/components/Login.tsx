@@ -4,7 +4,6 @@ import { Sun, ShieldAlert, KeyRound, User, Eye, EyeOff, LogIn } from 'lucide-rea
 import { Employee } from '../types';
 import { getEmployeeWithPasswordHash, verifyPassword } from '../api/databaseAPI';
 import { supabase } from '../lib/supabaseClient';
-import { getTodayUTCString } from '../utils/dateUtils';
 
 interface LoginProps {
   onLogin: (employee: Employee) => void;
@@ -133,7 +132,7 @@ export default function Login({ onLogin }: LoginProps) {
     '4': 'bg-purple-500',
     '5': 'bg-teal-500'
   };
-  
+
   // ==========================================================
   // ОБРАБОТЧИК ВХОДА
   // ==========================================================
@@ -218,29 +217,15 @@ export default function Login({ onLogin }: LoginProps) {
         return;
       }
       // ✅ Проверяем, работает ли сегодня сотрудник
-const getLocalTodayStr = () => {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-const todayStr = getTodayUTCString();
-
+const today = new Date();
+today.setHours(0, 0, 0, 0);
+const todayStr = today.toISOString().split('T')[0];
 
 // Директор может войти в любой день
 const isDirector = employee.role_id === 'role_dir';
 
 if (!isDirector) {
-  // ✅ Используем UTC дату для запроса в Supabase
-  const today = new Date();
-  const todayStr = today.toISOString().split('T')[0];
-  
-  console.log('📅 Сегодня (локальное):', today.toLocaleDateString('ru-RU'));
-  console.log('📅 Сегодня (UTC):', todayStr);
-  console.log('👤 Сотрудник:', employee.name);
-  
-  // Проверяем расписание на сегодня (UTC)
+  // Проверяем расписание на сегодня по конкретной дате
   const { data: schedule, error: scheduleError } = await supabase
     .from('employee_schedules')
     .select('*')
@@ -252,20 +237,14 @@ if (!isDirector) {
     console.error('❌ Ошибка проверки расписания:', scheduleError);
   }
 
-  console.log('📋 Найденное расписание:', schedule);
-
-  // Если расписание найдено и статус "Выходной" - блокируем вход
-  if (schedule && schedule.status === 'Выходной') {
-    setError(`❌ Сегодня (${todayStr}) у вас выходной! Обратитесь к администратору.`);
+  // Если расписание не найдено или статус "Выходной"
+  if (!schedule || schedule.status === 'Выходной') {
+    setError('❌ Сегодня у вас выходной! Обратитесь к администратору.');
     setIsLoading(false);
     return;
   }
-  
-  // Если расписание не найдено - разрешаем вход (по умолчанию)
-  if (!schedule) {
-    console.log('⚠️ Расписание не найдено, разрешаем вход');
-  }
 }
+
       // ✅ Успешный вход — сбрасываем счётчик
       setLoginAttempts(0);
       localStorage.removeItem('maria_ra_blocked_until');

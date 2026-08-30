@@ -22,7 +22,6 @@ import {
 } from '../api/databaseAPI';
 import { supabase } from '../lib/supabaseClient';
 import { Product, Employee } from '../types';
-import { formatLocalDateTime } from '../utils/dateUtils';
 
 interface CashierWorkspaceProps {
   currentUser: Employee;
@@ -747,10 +746,79 @@ ${index + 1}. Чек №${receipt.receipt_number}${isReturn}
     }
   };
 
+  {/* Блок смены */ }
+  <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-xl p-4 mb-4">
+    {activeShift ? (
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        <div>
+          <span className="text-xs font-bold text-green-600 dark:text-green-400 flex items-center">
+            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse mr-2"></span>
+            СМЕНА АКТИВНА
+          </span>
+          <span className="text-xs text-gray-500 dark:text-slate-400 block mt-1">
+            Начало: {new Date(activeShift.start_time).toLocaleString('ru-RU')}
+          </span>
+          <span className="text-xs text-gray-500 dark:text-slate-400 block">
+            Начальный остаток: {activeShift.start_cash?.toFixed(2) || '0.00'} ₽
+          </span>
+          <span className="text-xs text-gray-500 dark:text-slate-400 block">
+            Чеков за смену: {shiftReceipts?.filter(r => !r.is_return).length || 0}
+          </span>
+          <span className="text-xs text-gray-500 dark:text-slate-400 block">
+            Выручка за смену: {shiftReceipts?.reduce((sum, r) => sum + (r.total_amount || 0), 0)?.toFixed(2) || '0.00'} ₽
+          </span>
+          <span className="text-xs text-gray-500 dark:text-slate-400 block">
+            Возвратов: {shiftReceipts?.filter(r => r.is_return).length || 0}
+          </span>
+        </div>
+        <div className="flex gap-2 w-full sm:w-auto">
+          <input
+            type="number"
+            placeholder="Фактическая выручка ₽"
+            value={shiftEndCash || ''}
+            onChange={(e) => setShiftEndCash(parseFloat(e.target.value) || 0)}
+            className="flex-1 sm:flex-none bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-green-500"
+            step="0.01"
+          />
+          <button
+            onClick={handleCloseShift}
+            disabled={loading}
+            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold transition-colors disabled:opacity-50 whitespace-nowrap"
+          >
+            {loading ? '...' : 'Закрыть смену'}
+          </button>
+        </div>
+      </div>
+    ) : (
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        <div>
+          <span className="text-xs font-bold text-gray-400 dark:text-slate-500">СМЕНА НЕ АКТИВНА</span>
+          <span className="text-xs text-gray-400 dark:text-slate-500 block mt-1">
+            Начните смену для работы с кассой
+          </span>
+        </div>
+        <div className="flex gap-2 w-full sm:w-auto">
+          <input
+            type="number"
+            placeholder="Начальный остаток ₽"
+            value={shiftStartCash || ''}
+            onChange={(e) => setShiftStartCash(parseFloat(e.target.value) || 0)}
+            className="flex-1 sm:flex-none bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-green-500"
+            step="0.01"
+          />
+          <button
+            onClick={handleStartShift}
+            disabled={loading}
+            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-bold transition-colors disabled:opacity-50 whitespace-nowrap"
+          >
+            {loading ? '...' : 'Начать смену'}
+          </button>
+        </div>
+      </div>
+    )}
+  </div>
   const [period, setPeriod] = useState<'today' | 'week' | 'month'>('today');
   const [allReceipts, setAllReceipts] = useState<any[]>([]);
-
-  
   <div className="flex gap-1 mb-3">
     <button
       onClick={() => setPeriod('today')}
@@ -803,8 +871,8 @@ ${index + 1}. Чек №${receipt.receipt_number}${isReturn}
                 СМЕНА АКТИВНА
               </span>
               <span className="text-xs text-gray-500 dark:text-slate-400 block mt-1">
-  Начало: {formatLocalDateTime(activeShift.start_time)}
-</span>
+                Начало: {new Date(activeShift.start_time).toLocaleString('ru-RU')}
+              </span>
               <span className="text-xs text-gray-500 dark:text-slate-400 block">
                 Начальный остаток: {activeShift.start_cash?.toFixed(2) || '0.00'} ₽
               </span>

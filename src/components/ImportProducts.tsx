@@ -6,7 +6,6 @@ import * as XLSX from 'xlsx';
 import { createProduct, createBatch } from '../api/databaseAPI';
 import { ProductCategory } from '../types';
 import { supabase } from '../lib/supabaseClient';
-import { getTodayISOString } from '../utils/dateUtils';
 
 interface ImportProductsProps {
   onImportComplete: () => Promise<void>;
@@ -347,7 +346,7 @@ export default function ImportProducts({ onImportComplete, onClose }: ImportProd
           product_id: productId,
           store_id: 'store_1',
           quantity: row.quantity,
-          manufacture_date: row.manufactureDate || getTodayISOString(),
+          manufacture_date: row.manufactureDate || new Date().toISOString().split('T')[0],
           expiration_date: row.expirationDate,
           location_id: row.location || 'shelf_1'
         });

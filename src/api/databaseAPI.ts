@@ -1,7 +1,6 @@
 import { supabase } from '../lib/supabaseClient';
 import { Product, ProductCategory } from '../types';
 import * as bcrypt from 'bcryptjs';
-import { getNowISOString } from '../utils/dateUtils';
 
 // ==========================================================
 // 1. РАБОТА С КАТЕГОРИЯМИ
@@ -233,7 +232,7 @@ export async function createWriteoffAct(act: any) {
       creator_id: act.creator_id,
       approved_by_id: act.approved_by_id || null,
       is_exported_to_1c: act.is_exported_to_1c || false,
-      created_at: getNowISOString()
+      created_at: new Date().toISOString()
     }])
     .select();
   
@@ -684,10 +683,7 @@ export async function recordSaleInSupabase(productId: string, quantity: number, 
 // 21. РАБОТА С РАСПИСАНИЕМ СОТРУДНИКОВ (ПО ДАТАМ)
 // ==========================================================
 export async function getSchedulesByDate(date: Date) {
-  // ✅ Используем UTC дату для запроса
   const dateStr = date.toISOString().split('T')[0];
-  console.log('📅 Загружаем расписание на:', dateStr);
-  
   const { data, error } = await supabase
     .from('employee_schedules')
     .select('*, employees(*)')
@@ -699,7 +695,6 @@ export async function getSchedulesByDate(date: Date) {
   }
   return data || [];
 }
-
 
 export async function getSchedulesForMonth(year: number, month: number) {
   const startDate = new Date(year, month, 1);
@@ -728,10 +723,7 @@ export async function updateScheduleForDate(
   status: string,
   dayType: string
 ) {
-  // ✅ Используем UTC дату для сохранения в БД
   const dateStr = date.toISOString().split('T')[0];
-  
-  console.log('📅 Сохраняем расписание на:', dateStr);
   
   const { data: existing, error: findError } = await supabase
     .from('employee_schedules')
@@ -781,7 +773,6 @@ export async function updateScheduleForDate(
     return data?.[0];
   }
 }
-
 
 // ==========================================================
 // 22. ХЕШИРОВАНИЕ ПАРОЛЕЙ (НОВЫЕ ФУНКЦИИ)
@@ -1220,7 +1211,7 @@ export async function startShift(cashierId: string, storeId: string = 'store_1',
       id: shiftId,
       cashier_id: cashierId,
       store_id: storeId,
-      start_time: getNowISOString(),
+      start_time: new Date().toISOString(), // ← это локальное время, но в Supabase сохраняется UTC
       start_cash: startCash,
       is_active: true,
       receipts_count: 0,

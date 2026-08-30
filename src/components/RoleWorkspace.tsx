@@ -189,25 +189,24 @@ useEffect(() => {
 const handleDateChange = (value: any) => {
   if (value instanceof Date) {
     const newDate = new Date(value);
-    // ✅ Не обнуляем время, чтобы сохранить правильную UTC дату
+    newDate.setHours(0, 0, 0, 0);
+    
+    console.log('📅 Выбрана дата:', newDate.toLocaleDateString('ru-RU'));
+    
+    // Устанавливаем выбранную дату
     setSelectedDate(newDate);
+    // Загружаем расписание для этой даты
     loadSchedules(newDate);
+    // Закрываем календарь
     setTimeout(() => setShowCalendar(false), 300);
   }
 };
-
-// При загрузке расписания для today/tomorrow
+// Загружаем расписание при изменении selectedDate (для режима "Месяц")
 useEffect(() => {
-  if (viewMode === 'day') {
-    let date = new Date();
-    if (selectedScheduleDay === 'tomorrow') {
-      date.setDate(date.getDate() + 1);
-    }
-    // ✅ Не обнуляем время
-    setSelectedDate(date);
-    loadSchedules(date);
+  if (viewMode === 'month' && selectedDate) {
+    loadSchedules(selectedDate);
   }
-}, [selectedScheduleDay, viewMode]);
+}, [selectedDate, viewMode]);
 
   // Automatic customer sales simulator
   useEffect(() => {
@@ -650,7 +649,7 @@ useEffect(() => {
                   </div>
 
                   <p className="text-[10px] text-gray-500 dark:text-slate-400 font-medium mb-3 leading-relaxed">
-                    Планирование выходов сотрудников розницы (4 человек, 2 рабочие смены). Изменения пишутся в СУБД-таблицу <span className="font-mono text-emerald-600 dark:text-emerald-400">employee_schedules</span>.
+                    Планирование выходов сотрудников розницы (5 человек, 2 рабочие смены). Изменения пишутся в СУБД-таблицу <span className="font-mono text-emerald-600 dark:text-emerald-400">employee_schedules</span>.
                   </p>
 
                   {/* Выпадающий календарь */}
@@ -687,9 +686,7 @@ useEffect(() => {
   {/* Отображение текущей даты */}
   <div className="text-[10px] text-gray-400 dark:text-slate-500 mb-2">
     {viewMode === 'month' ? (
-      <span className="text-[10px] text-gray-400 dark:text-slate-500">
-  📅 Текущая дата: <b>{new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}</b>
-</span>
+      <span>📅 Текущая дата: <b>{selectedDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}</b></span>
     ) : (
       <span>📅 {selectedScheduleDay === 'today' ? 'Сегодня' : 'Завтра'}: <b>{selectedDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}</b></span>
     )}
