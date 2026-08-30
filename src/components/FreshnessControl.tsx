@@ -87,6 +87,7 @@ const calculateStatusAndPercent = (expiryDateStr: string, manufactureDateStr?: s
     location: 'shelf_1',
     isUnlimited: false
   });
+  const [shelfLocations, setShelfLocations] = useState<any[]>([]);
 
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showMarkdownModal, setShowMarkdownModal] = useState(false);
@@ -133,6 +134,29 @@ const calculateStatusAndPercent = (expiryDateStr: string, manufactureDateStr?: s
       setInspectorName(`${currentUser.name} (${currentUser.role})`);
     }
   }, [currentUser]);
+
+  const loadShelfLocations = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('shelf_locations')
+        .select('*')
+        .order('id');
+      
+      if (error) {
+        console.error('❌ Ошибка загрузки стеллажей:', error);
+        return;
+      }
+      setShelfLocations(data || []);
+      console.log('✅ Загружено стеллажей:', data?.length);
+    } catch (error) {
+      console.error('❌ Ошибка загрузки стеллажей:', error);
+    }
+  };
+
+  // Загрузка при монтировании
+  useEffect(() => {
+    loadShelfLocations();
+  }, []);
 
   const handleScanTemplateChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const idx = Number(e.target.value);
@@ -1309,19 +1333,23 @@ if (product.status === 'long_term') {
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-extrabold text-gray-600 dark:text-slate-400 uppercase mb-1">Стеллаж / Ряд</label>
-                  <select
-                    value={newProduct.location}
-                    onChange={(e) => setNewProduct({ ...newProduct, location: e.target.value })}
-                    className="w-full bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-gray-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-900 focus:border-green-500 rounded-lg px-3 py-1.5 text-xs font-semibold focus:outline-none transition-colors duration-200"
-                  >
-                    <option value="shelf_1">Холодильник молочной гастрономии (shelf_1)</option>
-                    <option value="shelf_2">Холодильная витрина колбас и мяса (shelf_2)</option>
-                    <option value="shelf_3">Полки хлебобулочных изделий (shelf_3)</option>
-                    <option value="shelf_4">Стеллажи бакалеи (shelf_4)</option>
-                    <option value="shelf_5">Стеллаж кондитерской продукции (shelf_5)</option>
-                  </select>
-                </div>
+  <label className="block text-[10px] font-extrabold text-gray-600 dark:text-slate-400 uppercase mb-1">Стеллаж / Ряд</label>
+  <select
+    value={newProduct.location}
+    onChange={(e) => setNewProduct({ ...newProduct, location: e.target.value })}
+    className="w-full bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-gray-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-900 focus:border-green-500 rounded-lg px-3 py-1.5 text-xs font-semibold focus:outline-none transition-colors duration-200"
+  >
+    {shelfLocations.length === 0 ? (
+      <option value="shelf_1">Загрузка...</option>
+    ) : (
+      shelfLocations.map((loc) => (
+        <option key={loc.id} value={loc.id}>
+          {loc.description} ({loc.zone_code})
+        </option>
+      ))
+    )}
+  </select>
+</div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
