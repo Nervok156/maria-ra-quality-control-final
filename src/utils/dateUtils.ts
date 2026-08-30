@@ -40,13 +40,13 @@ export const formatLocalTime = (dateString: string): string => {
 // ✅ ИСПРАВЛЕННАЯ: Получение текущей даты с учётом часового пояса
 export const getTodayISOString = (): string => {
   const now = new Date();
-  // Используем локальное время с учётом часового пояса
-  const localDate = new Date(now.toLocaleString('en-US', { timeZone: TIMEZONE }));
-  const year = localDate.getFullYear();
-  const month = String(localDate.getMonth() + 1).padStart(2, '0');
-  const day = String(localDate.getDate()).padStart(2, '0');
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  console.log('📅 getTodayISOString возвращает:', `${year}-${month}-${day}`);
   return `${year}-${month}-${day}`;
 };
+
 
 // Получение текущего времени в формате ISO с часовым поясом
 export const getNowISOString = (): string => {

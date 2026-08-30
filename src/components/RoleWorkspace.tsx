@@ -686,7 +686,9 @@ useEffect(() => {
   {/* Отображение текущей даты */}
   <div className="text-[10px] text-gray-400 dark:text-slate-500 mb-2">
     {viewMode === 'month' ? (
-      <span>📅 Текущая дата: <b>{selectedDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}</b></span>
+      <span className="text-[10px] text-gray-400 dark:text-slate-500">
+  📅 Текущая дата: <b>{new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}</b>
+</span>
     ) : (
       <span>📅 {selectedScheduleDay === 'today' ? 'Сегодня' : 'Завтра'}: <b>{selectedDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}</b></span>
     )}
