@@ -37,16 +37,38 @@ export const formatLocalTime = (dateString: string): string => {
   });
 };
 
-// Получение текущей даты в формате ISO (для запросов к БД)
+// ✅ ИСПРАВЛЕННАЯ: Получение текущей даты в локальном часовом поясе
 export const getTodayISOString = (): string => {
   const now = new Date();
-  const date = new Date(now.toLocaleString('en-US', { timeZone: TIMEZONE }));
-  return date.toISOString().split('T')[0];
+  // Получаем локальную дату в формате YYYY-MM-DD
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
 
-// Получение текущего времени в формате ISO (для запросов к БД)
+// ✅ ИСПРАВЛЕННАЯ: Получение текущего времени в локальном часовом поясе
 export const getNowISOString = (): string => {
   const now = new Date();
-  const date = new Date(now.toLocaleString('en-US', { timeZone: TIMEZONE }));
-  return date.toISOString();
+  // Используем локальное время для создания ISO строки
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const seconds = String(now.getSeconds()).padStart(2, '0');
+  const milliseconds = String(now.getMilliseconds()).padStart(3, '0');
+  
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${milliseconds}+07:00`;
+};
+
+// Получение текущей даты для отображения
+export const getTodayDisplay = (): string => {
+  const now = new Date();
+  return now.toLocaleDateString('ru-RU', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    timeZone: TIMEZONE
+  });
 };

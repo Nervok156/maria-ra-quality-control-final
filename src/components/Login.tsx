@@ -133,7 +133,7 @@ export default function Login({ onLogin }: LoginProps) {
     '4': 'bg-purple-500',
     '5': 'bg-teal-500'
   };
-
+  
   // ==========================================================
   // ОБРАБОТЧИК ВХОДА
   // ==========================================================
@@ -218,7 +218,14 @@ export default function Login({ onLogin }: LoginProps) {
         return;
       }
       // ✅ Проверяем, работает ли сегодня сотрудник
-const todayStr = getTodayISOString();
+const getLocalTodayStr = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+const todayStr = getLocalTodayStr();
 
 // Директор может войти в любой день
 const isDirector = employee.role_id === 'role_dir';
