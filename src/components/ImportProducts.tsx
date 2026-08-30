@@ -1,8 +1,11 @@
+// src/components/ImportProducts.tsx
+
 import React, { useState, useRef } from 'react';
 import { Upload, FileSpreadsheet, X, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { createProduct, createBatch } from '../api/databaseAPI';
 import { ProductCategory } from '../types';
+import { supabase } from '../lib/supabaseClient';
 
 interface ImportProductsProps {
   onImportComplete: () => Promise<void>;
@@ -70,7 +73,6 @@ export default function ImportProducts({ onImportComplete, onClose }: ImportProd
         const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
         const jsonData = XLSX.utils.sheet_to_json(firstSheet);
 
-        // Валидация данных
         const parsedData: ImportRow[] = [];
         const errors: string[] = [];
 
@@ -145,7 +147,7 @@ export default function ImportProducts({ onImportComplete, onClose }: ImportProd
     reader.readAsArrayBuffer(selectedFile);
   };
 
-  // Импорт данных
+  // Импорт данных (ОБНОВЛЁННАЯ ВЕРСИЯ)
   const handleImport = async () => {
     if (previewData.length === 0) {
       setStatus('error');
@@ -160,6 +162,7 @@ export default function ImportProducts({ onImportComplete, onClose }: ImportProd
 
     let successCount = 0;
     let errorCount = 0;
+    let skippedCount = 0;
     const errors: string[] = [];
 
     for (let i = 0; i < previewData.length; i++) {
@@ -167,20 +170,44 @@ export default function ImportProducts({ onImportComplete, onClose }: ImportProd
       try {
         setProgress(((i + 1) / previewData.length) * 100);
 
-        const product = await createProduct({
-          barcode: row.barcode,
-          name: row.name,
-          category_id: row.category,
-          base_price: row.price,
-          shelf_life_days: 7
-        });
+        // ✅ Проверяем, существует ли товар с таким штрихкодом
+        const { data: existingProducts, error: searchError } = await supabase
+          .from('products')
+          .select('id, name, barcode')
+          .eq('barcode', row.barcode)
+          .maybeSingle();
 
-        if (!product || !product.id) {
-          throw new Error(`Не удалось создать товар "${row.name}"`);
+        if (searchError) {
+          throw new Error(`Ошибка поиска товара: ${searchError.message}`);
         }
 
+        let productId: string;
+
+        if (existingProducts) {
+          // Товар уже существует → используем его ID
+          productId = existingProducts.id;
+          skippedCount++;
+          console.log(`📦 Товар "${row.name}" уже существует, добавляем только партию`);
+        } else {
+          // Товара нет → создаём новый
+          const product = await createProduct({
+            barcode: row.barcode,
+            name: row.name,
+            category_id: row.category,
+            base_price: row.price,
+            shelf_life_days: 7
+          });
+
+          if (!product || !product.id) {
+            throw new Error(`Не удалось создать товар "${row.name}"`);
+          }
+          productId = product.id;
+          successCount++;
+        }
+
+        // ✅ Создаём партию (обновляем количество)
         await createBatch({
-          product_id: product.id,
+          product_id: productId,
           store_id: 'store_1',
           quantity: row.quantity,
           manufacture_date: row.manufactureDate || new Date().toISOString().split('T')[0],
@@ -188,7 +215,6 @@ export default function ImportProducts({ onImportComplete, onClose }: ImportProd
           location_id: row.location || 'shelf_1'
         });
 
-        successCount++;
       } catch (error) {
         errorCount++;
         errors.push(`Строка ${i + 1} (${row.name}): ${(error as Error).message}`);
@@ -198,14 +224,25 @@ export default function ImportProducts({ onImportComplete, onClose }: ImportProd
 
     setImporting(false);
 
+    let resultMessage = '';
+    if (successCount > 0) {
+      resultMessage += `✅ Создано новых товаров: ${successCount}\n`;
+    }
+    if (skippedCount > 0) {
+      resultMessage += `📦 Существующих товаров (добавлены партии): ${skippedCount}\n`;
+    }
+    if (errorCount > 0) {
+      resultMessage += `❌ Ошибок: ${errorCount}\n${errors.join('\n')}`;
+    }
+
     if (errorCount === 0) {
       setStatus('success');
-      setMessage(`✅ Успешно импортировано ${successCount} товаров!`);
+      setMessage(`✅ Импорт завершён успешно!\n${resultMessage}`);
       await onImportComplete();
-      setTimeout(() => onClose(), 2000);
+      setTimeout(() => onClose(), 2500);
     } else {
       setStatus('error');
-      setMessage(`Импортировано ${successCount} товаров, ошибок: ${errorCount}\n${errors.join('\n')}`);
+      setMessage(`Импорт завершён с ошибками:\n${resultMessage}`);
     }
   };
 
