@@ -1311,4 +1311,3 @@ export async function getReceiptsByShift(shiftId: string) {
   }
   return data || [];
 }
-

@@ -203,9 +203,7 @@ export default function ImportProducts({ onImportComplete, onClose }: ImportProd
     reader.readAsArrayBuffer(selectedFile);
   };
 
-  // ✅ ИСПРАВЛЕННАЯ ФУНКЦИЯ ПОЛУЧЕНИЯ ID КАТЕГОРИИ
   const getCategoryId = (categoryName: string, categories: any[]): string | null => {
-    // Маппинг названий из Excel -> названия в базе данных (поле name)
     const categoryMapping: Record<string, string> = {
       'dairy': 'dairy',
       'bakery': 'bakery',
@@ -217,23 +215,15 @@ export default function ImportProducts({ onImportComplete, onClose }: ImportProd
     };
 
     const mappedName = categoryMapping[categoryName] || categoryName;
-    
-    // Ищем категорию по полю name
     const category = categories.find(c => c.name === mappedName);
     
-    console.log(`🔍 Ищем категорию: ${categoryName} -> ${mappedName}`);
-    console.log(`📋 Найдено:`, category);
-    
-    // Если не нашли по name, пробуем найти по code
     if (!category) {
       const categoryByCode = categories.find(c => c.code === mappedName.toUpperCase());
       if (categoryByCode) {
-        console.log(`✅ Найдено по code:`, categoryByCode);
         return categoryByCode.id;
       }
     }
     
-    // Если всё ещё не нашли, пробуем найти по russian_name
     if (!category) {
       const russianNames: Record<string, string> = {
         'dairy': 'Молочная гастрономия',
@@ -249,7 +239,6 @@ export default function ImportProducts({ onImportComplete, onClose }: ImportProd
       if (russianName) {
         const categoryByRussian = categories.find(c => c.russian_name === russianName);
         if (categoryByRussian) {
-          console.log(`✅ Найдено по russian_name:`, categoryByRussian);
           return categoryByRussian.id;
         }
       }
@@ -258,7 +247,7 @@ export default function ImportProducts({ onImportComplete, onClose }: ImportProd
     return category?.id || null;
   };
 
-  // ОБНОВЛЁННАЯ ФУНКЦИЯ ИМПОРТА
+  // ✅ ОБНОВЛЁННАЯ ФУНКЦИЯ ИМПОРТА С ОБНОВЛЕНИЕМ КАТЕГОРИЙ
   const handleImport = async () => {
     if (previewData.length === 0) {
       setStatus('error');
@@ -274,9 +263,9 @@ export default function ImportProducts({ onImportComplete, onClose }: ImportProd
     let successCount = 0;
     let errorCount = 0;
     let skippedCount = 0;
+    let updatedCount = 0;
     const errors: string[] = [];
 
-    // Получаем список категорий из базы данных
     const { data: categories, error: categoriesError } = await supabase
       .from('categories')
       .select('*');
@@ -305,7 +294,7 @@ export default function ImportProducts({ onImportComplete, onClose }: ImportProd
 
         const { data: existingProducts, error: searchError } = await supabase
           .from('products')
-          .select('id, name, barcode')
+          .select('id, name, barcode, category_id')
           .eq('barcode', row.barcode)
           .maybeSingle();
 
@@ -317,7 +306,24 @@ export default function ImportProducts({ onImportComplete, onClose }: ImportProd
 
         if (existingProducts) {
           productId = existingProducts.id;
-          skippedCount++;
+          
+          // ✅ Если категория изменилась, обновляем товар
+          if (existingProducts.category_id !== categoryId) {
+            console.log(`🔄 Обновляем категорию товара "${row.name}": ${existingProducts.category_id} -> ${categoryId}`);
+            
+            const { error: updateError } = await supabase
+              .from('products')
+              .update({ category_id: categoryId })
+              .eq('id', productId);
+            
+            if (updateError) {
+              throw new Error(`Ошибка обновления категории: ${updateError.message}`);
+            }
+            updatedCount++;
+          } else {
+            skippedCount++;
+          }
+          
           console.log(`📦 Товар "${row.name}" уже существует, добавляем только партию`);
         } else {
           const product = await createProduct({
@@ -360,6 +366,9 @@ export default function ImportProducts({ onImportComplete, onClose }: ImportProd
     }
     if (skippedCount > 0) {
       resultMessage += `📦 Существующих товаров (добавлены партии): ${skippedCount}\n`;
+    }
+    if (updatedCount > 0) {
+      resultMessage += `🔄 Обновлено категорий у существующих товаров: ${updatedCount}\n`;
     }
     if (errorCount > 0) {
       resultMessage += `❌ Ошибок: ${errorCount}\n${errors.join('\n')}`;
