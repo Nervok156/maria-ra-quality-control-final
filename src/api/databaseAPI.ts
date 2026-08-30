@@ -684,7 +684,10 @@ export async function recordSaleInSupabase(productId: string, quantity: number, 
 // 21. РАБОТА С РАСПИСАНИЕМ СОТРУДНИКОВ (ПО ДАТАМ)
 // ==========================================================
 export async function getSchedulesByDate(date: Date) {
+  // ✅ Используем UTC дату для запроса
   const dateStr = date.toISOString().split('T')[0];
+  console.log('📅 Загружаем расписание на:', dateStr);
+  
   const { data, error } = await supabase
     .from('employee_schedules')
     .select('*, employees(*)')
@@ -696,6 +699,7 @@ export async function getSchedulesByDate(date: Date) {
   }
   return data || [];
 }
+
 
 export async function getSchedulesForMonth(year: number, month: number) {
   const startDate = new Date(year, month, 1);
@@ -724,7 +728,10 @@ export async function updateScheduleForDate(
   status: string,
   dayType: string
 ) {
+  // ✅ Используем UTC дату для сохранения в БД
   const dateStr = date.toISOString().split('T')[0];
+  
+  console.log('📅 Сохраняем расписание на:', dateStr);
   
   const { data: existing, error: findError } = await supabase
     .from('employee_schedules')
@@ -774,6 +781,7 @@ export async function updateScheduleForDate(
     return data?.[0];
   }
 }
+
 
 // ==========================================================
 // 22. ХЕШИРОВАНИЕ ПАРОЛЕЙ (НОВЫЕ ФУНКЦИИ)

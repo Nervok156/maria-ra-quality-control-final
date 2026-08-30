@@ -189,24 +189,25 @@ useEffect(() => {
 const handleDateChange = (value: any) => {
   if (value instanceof Date) {
     const newDate = new Date(value);
-    newDate.setHours(0, 0, 0, 0);
-    
-    console.log('📅 Выбрана дата:', newDate.toLocaleDateString('ru-RU'));
-    
-    // Устанавливаем выбранную дату
+    // ✅ Не обнуляем время, чтобы сохранить правильную UTC дату
     setSelectedDate(newDate);
-    // Загружаем расписание для этой даты
     loadSchedules(newDate);
-    // Закрываем календарь
     setTimeout(() => setShowCalendar(false), 300);
   }
 };
-// Загружаем расписание при изменении selectedDate (для режима "Месяц")
+
+// При загрузке расписания для today/tomorrow
 useEffect(() => {
-  if (viewMode === 'month' && selectedDate) {
-    loadSchedules(selectedDate);
+  if (viewMode === 'day') {
+    let date = new Date();
+    if (selectedScheduleDay === 'tomorrow') {
+      date.setDate(date.getDate() + 1);
+    }
+    // ✅ Не обнуляем время
+    setSelectedDate(date);
+    loadSchedules(date);
   }
-}, [selectedDate, viewMode]);
+}, [selectedScheduleDay, viewMode]);
 
   // Automatic customer sales simulator
   useEffect(() => {

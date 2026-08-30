@@ -1,7 +1,7 @@
 // Часовой пояс Новосибирска/Барнаула (UTC+7)
 const TIMEZONE = 'Asia/Novosibirsk';
 
-// Форматирование даты в локальный формат
+// Форматирование даты в локальный формат для отображения
 export const formatLocalDateTime = (dateString: string): string => {
   const date = new Date(dateString);
   return date.toLocaleString('ru-RU', {
@@ -15,7 +15,7 @@ export const formatLocalDateTime = (dateString: string): string => {
   });
 };
 
-// Форматирование только даты
+// Форматирование только даты для отображения
 export const formatLocalDate = (dateString: string): string => {
   const date = new Date(dateString);
   return date.toLocaleDateString('ru-RU', {
@@ -25,6 +25,17 @@ export const formatLocalDate = (dateString: string): string => {
     timeZone: TIMEZONE
   });
 };
+
+// ✅ Для запросов к БД используем UTC дату (просто toISOString)
+export const getTodayUTCString = (): string => {
+  return new Date().toISOString().split('T')[0];
+};
+
+// Для создания записей в БД используем UTC время
+export const getNowUTCString = (): string => {
+  return new Date().toISOString();
+};
+
 
 // Форматирование только времени
 export const formatLocalTime = (dateString: string): string => {

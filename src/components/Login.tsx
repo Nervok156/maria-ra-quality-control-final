@@ -4,7 +4,7 @@ import { Sun, ShieldAlert, KeyRound, User, Eye, EyeOff, LogIn } from 'lucide-rea
 import { Employee } from '../types';
 import { getEmployeeWithPasswordHash, verifyPassword } from '../api/databaseAPI';
 import { supabase } from '../lib/supabaseClient';
-import { getTodayISOString } from '../utils/dateUtils';
+import { getTodayUTCString } from '../utils/dateUtils';
 
 interface LoginProps {
   onLogin: (employee: Employee) => void;
@@ -225,23 +225,22 @@ const getLocalTodayStr = () => {
   const day = String(now.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 };
-const todayStr = getLocalTodayStr();
+const todayStr = getTodayUTCString();
+
 
 // Директор может войти в любой день
 const isDirector = employee.role_id === 'role_dir';
 
 if (!isDirector) {
-  // Получаем сегодняшнюю дату
-const today = new Date();
-const year = today.getFullYear();
-const month = String(today.getMonth() + 1).padStart(2, '0');
-const day = String(today.getDate()).padStart(2, '0');
-const todayStr = `${year}-${month}-${day}`;
-
-console.log('📅 Сегодня (локальное):', todayStr);
-console.log('📅 Полная дата:', today.toISOString());
-console.log('📅 getDate():', today.getDate());
-  // Проверяем расписание на сегодня
+  // ✅ Используем UTC дату для запроса в Supabase
+  const today = new Date();
+  const todayStr = today.toISOString().split('T')[0];
+  
+  console.log('📅 Сегодня (локальное):', today.toLocaleDateString('ru-RU'));
+  console.log('📅 Сегодня (UTC):', todayStr);
+  console.log('👤 Сотрудник:', employee.name);
+  
+  // Проверяем расписание на сегодня (UTC)
   const { data: schedule, error: scheduleError } = await supabase
     .from('employee_schedules')
     .select('*')
