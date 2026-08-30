@@ -203,9 +203,9 @@ export default function ImportProducts({ onImportComplete, onClose }: ImportProd
     reader.readAsArrayBuffer(selectedFile);
   };
 
-  // ✅ Функция получения ID категории
+  // ✅ ИСПРАВЛЕННАЯ ФУНКЦИЯ ПОЛУЧЕНИЯ ID КАТЕГОРИИ
   const getCategoryId = (categoryName: string, categories: any[]): string | null => {
-    // Маппинг названий из Excel -> названия в базе данных
+    // Маппинг названий из Excel -> названия в базе данных (поле name)
     const categoryMapping: Record<string, string> = {
       'dairy': 'dairy',
       'bakery': 'bakery',
@@ -217,14 +217,48 @@ export default function ImportProducts({ onImportComplete, onClose }: ImportProd
     };
 
     const mappedName = categoryMapping[categoryName] || categoryName;
+    
+    // Ищем категорию по полю name
     const category = categories.find(c => c.name === mappedName);
     
-    console.log(`🔍 Ищем категорию: ${categoryName} -> ${mappedName} -> ${category?.id || 'не найдено'}`);
+    console.log(`🔍 Ищем категорию: ${categoryName} -> ${mappedName}`);
+    console.log(`📋 Найдено:`, category);
+    
+    // Если не нашли по name, пробуем найти по code
+    if (!category) {
+      const categoryByCode = categories.find(c => c.code === mappedName.toUpperCase());
+      if (categoryByCode) {
+        console.log(`✅ Найдено по code:`, categoryByCode);
+        return categoryByCode.id;
+      }
+    }
+    
+    // Если всё ещё не нашли, пробуем найти по russian_name
+    if (!category) {
+      const russianNames: Record<string, string> = {
+        'dairy': 'Молочная гастрономия',
+        'bakery': 'Хлебобулочные изделия',
+        'meat_sausage': 'Мясные изделия & Колбасы',
+        'grocery': 'Бакалейные товары',
+        'beverages': 'Напитки & Соки',
+        'confectionery': 'Кондитерские изделия',
+        'other': 'Прочие товары'
+      };
+      
+      const russianName = russianNames[mappedName];
+      if (russianName) {
+        const categoryByRussian = categories.find(c => c.russian_name === russianName);
+        if (categoryByRussian) {
+          console.log(`✅ Найдено по russian_name:`, categoryByRussian);
+          return categoryByRussian.id;
+        }
+      }
+    }
     
     return category?.id || null;
   };
 
-  // ✅ ОБНОВЛЁННАЯ ФУНКЦИЯ ИМПОРТА
+  // ОБНОВЛЁННАЯ ФУНКЦИЯ ИМПОРТА
   const handleImport = async () => {
     if (previewData.length === 0) {
       setStatus('error');
@@ -242,7 +276,7 @@ export default function ImportProducts({ onImportComplete, onClose }: ImportProd
     let skippedCount = 0;
     const errors: string[] = [];
 
-    // ✅ Получаем список категорий из базы данных
+    // Получаем список категорий из базы данных
     const { data: categories, error: categoriesError } = await supabase
       .from('categories')
       .select('*');
@@ -262,7 +296,6 @@ export default function ImportProducts({ onImportComplete, onClose }: ImportProd
       try {
         setProgress(((i + 1) / previewData.length) * 100);
 
-        // ✅ Получаем правильный ID категории
         const categoryId = getCategoryId(row.category, categories || []);
         if (!categoryId) {
           throw new Error(`Категория "${row.category}" не найдена в базе данных`);
@@ -287,7 +320,6 @@ export default function ImportProducts({ onImportComplete, onClose }: ImportProd
           skippedCount++;
           console.log(`📦 Товар "${row.name}" уже существует, добавляем только партию`);
         } else {
-          // ✅ Создаём товар с правильным category_id
           const product = await createProduct({
             barcode: row.barcode,
             name: row.name,
