@@ -232,15 +232,15 @@ const isDirector = employee.role_id === 'role_dir';
 
 if (!isDirector) {
   // Получаем сегодняшнюю дату
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, '0');
-  const day = String(today.getDate()).padStart(2, '0');
-  const todayStr = `${year}-${month}-${day}`;
-  
-  console.log('📅 Сегодня:', todayStr);
-  console.log('👤 Сотрудник:', employee.name);
-  
+const today = new Date();
+const year = today.getFullYear();
+const month = String(today.getMonth() + 1).padStart(2, '0');
+const day = String(today.getDate()).padStart(2, '0');
+const todayStr = `${year}-${month}-${day}`;
+
+console.log('📅 Сегодня (локальное):', todayStr);
+console.log('📅 Полная дата:', today.toISOString());
+console.log('📅 getDate():', today.getDate());
   // Проверяем расписание на сегодня
   const { data: schedule, error: scheduleError } = await supabase
     .from('employee_schedules')
