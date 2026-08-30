@@ -61,6 +61,43 @@ export default function CashierWorkspace({ currentUser, onDataChange }: CashierW
   const [selectedReceiptForReturn, setSelectedReceiptForReturn] = useState<any>(null);
   const [selectedReturnItems, setSelectedReturnItems] = useState<Set<string>>(new Set());
 
+  const TIMEZONE_OFFSET = 7;
+
+  const formatLocalTime = (dateString: string) => {
+    if (!dateString) return '—';
+    const date = new Date(dateString);
+    date.setHours(date.getHours() + TIMEZONE_OFFSET);
+    return date.toLocaleString('ru-RU', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  };
+
+  const formatLocalDate = (dateString: string) => {
+    if (!dateString) return '—';
+    const date = new Date(dateString);
+    date.setHours(date.getHours() + TIMEZONE_OFFSET);
+    return date.toLocaleDateString('ru-RU', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+  };
+
+  const formatLocalTimeShort = (dateString: string) => {
+    if (!dateString) return '—';
+    const date = new Date(dateString);
+    date.setHours(date.getHours() + TIMEZONE_OFFSET);
+    return date.toLocaleTimeString('ru-RU', {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
   //ФУНКЦИИ КОРЗИНЫ (ДОБАВИТЬ СЮДА)
   const getTotal = () => {
     return cart.reduce((sum: number, item: CartItem) => sum + (item.totalPrice || 0), 0);
@@ -505,11 +542,13 @@ export default function CashierWorkspace({ currentUser, onDataChange }: CashierW
   // СКАЧИВАНИЕ ЧЕКОВ И ОТЧЁТОВ
   // ==========================================================
   const handleDownloadReceipt = (receipt: any) => {
-    const items = receipt.receipt_items || [];
-    const date = new Date(receipt.created_at).toLocaleString('ru-RU');
+  const items = receipt.receipt_items || [];
 
-    const isReturn = receipt.is_return === true;
-    const receiptType = isReturn ? 'ЧЕК ВОЗВРАТА' : 'КАССОВЫЙ ЧЕК';
+  const date = formatLocalTime(receipt.created_at);
+  
+  const isReturn = receipt.is_return === true;
+  const receiptType = isReturn ? 'ЧЕК ВОЗВРАТА' : 'КАССОВЫЙ ЧЕК';
+
 
     // Считаем общее количество товаров
     const totalItems = items.reduce((sum: number, item: any) => sum + item.quantity, 0);
@@ -597,14 +636,14 @@ ${isReturn ? '' : '\n    Товар надлежащего качества об
     ЧЕКИ:
 `;
 
-  receipts.forEach((receipt: any, index: number) => {
+   receipts.forEach((receipt: any, index: number) => {
     const items = receipt.receipt_items || [];
     const totalQtyInReceipt = items.reduce((sum: number, item: any) => sum + Math.abs(item.quantity || 0), 0);
     const isReturn = receipt.is_return ? ' [ВОЗВРАТ]' : '';
     
     text += `
 ${index + 1}. Чек №${receipt.receipt_number}${isReturn}
-   Время: ${new Date(receipt.created_at).toLocaleString('ru-RU')}
+   Время: ${formatLocalTime(receipt.created_at)}
    Товаров (шт.): ${totalQtyInReceipt}
    Сумма: ${receipt.total_amount?.toFixed(2) || '0.00'} ₽
 `;
@@ -859,34 +898,36 @@ ${index + 1}. Чек №${receipt.receipt_number}${isReturn}
       {/* ==========================================================
           БЛОК УПРАВЛЕНИЯ СМЕНОЙ
           ========================================================== */}
-      <div className={`border rounded-xl p-4 transition-colors ${activeShift
-        ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-900/30'
-        : 'bg-gray-50 dark:bg-slate-800/50 border-gray-200 dark:border-slate-700'
-        }`}>
-        {activeShift ? (
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-            <div>
-              <span className="text-xs font-bold text-green-600 dark:text-green-400 flex items-center">
-                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse mr-2"></span>
-                СМЕНА АКТИВНА
-              </span>
-              <span className="text-xs text-gray-500 dark:text-slate-400 block mt-1">
-                Начало: {new Date(activeShift.start_time).toLocaleString('ru-RU')}
-              </span>
-              <span className="text-xs text-gray-500 dark:text-slate-400 block">
-                Начальный остаток: {activeShift.start_cash?.toFixed(2) || '0.00'} ₽
-              </span>
-              <span className="text-xs text-gray-500 dark:text-slate-400 block">
-                Чеков за смену: {shiftReceipts?.length || 0}
-              </span>
-              <span className="text-xs text-gray-500 dark:text-slate-400 block">
-                Выручка за смену: {
-                  shiftReceipts
-                    ?.reduce((sum, r) => sum + (r.total_amount || 0), 0)
-                    ?.toFixed(2) || '0.00'
-                } ₽
-              </span>
-            </div>
+      <div className={`border rounded-xl p-4 transition-colors ${
+  activeShift 
+    ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-900/30'
+    : 'bg-gray-50 dark:bg-slate-800/50 border-gray-200 dark:border-slate-700'
+}`}>
+  {activeShift ? (
+    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+      <div>
+        <span className="text-xs font-bold text-green-600 dark:text-green-400 flex items-center">
+          <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse mr-2"></span>
+          СМЕНА АКТИВНА
+        </span>
+        {/* ✅ ЗАМЕНИТЬ ЭТУ СТРОКУ */}
+        <span className="text-xs text-gray-500 dark:text-slate-400 block mt-1">
+          Начало: {formatLocalTime(activeShift.start_time)}
+        </span>
+        {/* ✅ КОНЕЦ ЗАМЕНЫ */}
+        <span className="text-xs text-gray-500 dark:text-slate-400 block">
+          Начальный остаток: {activeShift.start_cash?.toFixed(2) || '0.00'} ₽
+        </span>
+        <span className="text-xs text-gray-500 dark:text-slate-400 block">
+          Чеков за смену: {shiftReceipts?.filter(r => !r.is_return).length || 0}
+        </span>
+        <span className="text-xs text-gray-500 dark:text-slate-400 block">
+          Выручка за смену: {shiftReceipts?.reduce((sum, r) => sum + (r.total_amount || 0), 0)?.toFixed(2) || '0.00'} ₽
+        </span>
+        <span className="text-xs text-gray-500 dark:text-slate-400 block">
+          Возвратов: {shiftReceipts?.filter(r => r.is_return).length || 0}
+        </span>
+      </div>
             <div className="flex gap-2 w-full sm:w-auto">
               <input
                 type="number"
@@ -1303,16 +1344,16 @@ ${index + 1}. Чек №${receipt.receipt_number}${isReturn}
           >
             <div className="flex justify-between items-start">
               <div>
-                <span className="text-sm font-bold text-gray-900 dark:text-slate-100 block">
-                  Чек №{receipt.receipt_number}
-                  {isReturn && (
-                    <span className="ml-2 text-xs text-red-500 font-bold">(Возврат)</span>
-                  )}
-                </span>
-                <span className="text-xs text-gray-400">
-                  {new Date(receipt.created_at).toLocaleString('ru-RU')}
-                </span>
-                <div className="mt-1 space-y-0.5">
+  <span className="text-sm font-bold text-gray-900 dark:text-slate-100 block">
+    Чек №{receipt.receipt_number}
+    {receipt.is_return && (
+      <span className="ml-2 text-xs text-red-500 font-bold">(Возврат)</span>
+    )}
+  </span>
+  <span className="text-xs text-gray-400">
+    {formatLocalTime(receipt.created_at)}
+  </span>
+  <div className="mt-1 space-y-0.5">
                   {(receipt.receipt_items || []).map((item: any, idx: number) => (
                     <div key={idx} className="text-xs text-gray-600 dark:text-gray-400 flex justify-between">
                       <span className="truncate max-w-[180px]">
