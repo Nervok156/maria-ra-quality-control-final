@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { 
   ShieldCheck, AlertTriangle, Trash2, Tag, Plus, Search, 
   TrendingDown, CheckCircle, Sparkles, Printer,
-  Layers, Check, Send, FileCheck, RefreshCw
+  Layers, Check, Send, FileCheck, RefreshCw, FileSpreadsheet 
+
 } from 'lucide-react';
 import { Product, ProductCategory, Employee } from '../types';
 import { categoryLabels, categoryColors, productTemplates } from '../data/initialProducts';
 import { supabase } from '../lib/supabaseClient';
 import { createProduct, createBatch, createMarkdown, createWriteoffAct, createWriteoffItems, getActiveProducts, addTelemetry } from '../api/databaseAPI';
-
+import ImportProducts from './ImportProducts'; 
 interface FreshnessControlProps {
   products: Product[];
   setProducts: React.Dispatch<React.SetStateAction<Product[]>>;
@@ -21,6 +22,7 @@ export default function FreshnessControl({ products, setProducts, currentUser, o
     const saved = localStorage.getItem('maria_ra_active_sub_tab');
     return (saved as any) || 'catalog';
   });
+  const [showImportModal, setShowImportModal] = useState(false);
 
   useEffect(() => {
     localStorage.setItem('maria_ra_active_sub_tab', activeSubTab);
@@ -594,66 +596,86 @@ if (product.status === 'long_term') {
       {activeSubTab === 'catalog' && (
         <div className="space-y-4 no-print">
           <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-xl p-4 shadow-2xs flex flex-col md:flex-row gap-3 transition-colors duration-200">
-            <div className="relative flex-1">
-              <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-3" />
-              <input 
-                type="text" 
-                placeholder="Поиск по названию, штрихкоду или стеллажу..." 
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-gray-900 dark:text-slate-100 placeholder-gray-400 dark:placeholder-slate-500 focus:bg-white dark:focus:bg-slate-900 focus:border-green-500 rounded-lg pl-10 pr-4 py-2 text-xs font-semibold focus:outline-none transition-all duration-200"
-              />
-            </div>
+  <div className="relative flex-1">
+    <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-3" />
+    <input 
+      type="text" 
+      placeholder="Поиск по названию, штрихкоду или стеллажу..." 
+      value={searchTerm}
+      onChange={(e) => setSearchTerm(e.target.value)}
+      className="w-full bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-gray-900 dark:text-slate-100 placeholder-gray-400 dark:placeholder-slate-500 focus:bg-white dark:focus:bg-slate-900 focus:border-green-500 rounded-lg pl-10 pr-4 py-2 text-xs font-semibold focus:outline-none transition-all duration-200"
+    />
+  </div>
 
-            <div className="flex gap-2.5">
-              <select
-                value={categoryFilter}
-                onChange={(e) => setCategoryFilter(e.target.value)}
-                className="bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-gray-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-900 focus:border-green-500 rounded-lg px-3 py-2 text-xs font-semibold focus:outline-none transition-all duration-200"
-              >
-                <option value="all">Все категории</option>
-                {Object.keys(categoryLabels).map(cat => (
-                  <option key={cat} value={cat}>{categoryLabels[cat as ProductCategory]}</option>
-                ))}
-              </select>
+  <div className="flex gap-2.5 flex-wrap">
+    <select
+      value={categoryFilter}
+      onChange={(e) => setCategoryFilter(e.target.value)}
+      className="bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-gray-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-900 focus:border-green-500 rounded-lg px-3 py-2 text-xs font-semibold focus:outline-none transition-all duration-200"
+    >
+      <option value="all">Все категории</option>
+      {Object.keys(categoryLabels).map(cat => (
+        <option key={cat} value={cat}>{categoryLabels[cat as ProductCategory]}</option>
+      ))}
+    </select>
 
-              <select
-                value={statusFilter}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setStatusFilter(val);
-                  if (val === 'written_off') {
-                    setHideWrittenOff(false);
-                  }
-                }}
-                className="bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-gray-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-900 focus:border-green-500 rounded-lg px-3 py-2 text-xs font-semibold focus:outline-none transition-all duration-200"
-              >
-                <option value="all">Все статусы</option>
-                <option value="fresh">Свежие товары</option>
-                <option value="expiring_soon">Истекающие сроки</option>
-                <option value="expired">Просроченные</option>
-                <option value="marked_down">Уцененные</option>
-                <option value="written_off">Списанные</option>
-                  <option value="long_term">📦 Длительное хранение</option>
-              </select>
-              <label className="flex items-center space-x-2 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs font-semibold text-gray-700 dark:text-slate-300 cursor-pointer select-none hover:bg-gray-100 dark:hover:bg-slate-750 transition-all">
-                <input
-                  type="checkbox"
-                  checked={hideWrittenOff}
-                  onChange={(e) => setHideWrittenOff(e.target.checked)}
-                  className="w-4 h-4 text-green-600 focus:ring-green-500 border-gray-300 rounded cursor-pointer"
-                />
-                <span>Скрыть списанные</span>
-              </label>
-              <button
-                onClick={() => setShowAddModal(true)}
-                className="flex items-center space-x-1.5 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-98"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Добавить товар</span>
-              </button>
-            </div>
-          </div>
+    <select
+      value={statusFilter}
+      onChange={(e) => {
+        const val = e.target.value;
+        setStatusFilter(val);
+        if (val === 'written_off') {
+          setHideWrittenOff(false);
+        }
+      }}
+      className="bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-gray-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-900 focus:border-green-500 rounded-lg px-3 py-2 text-xs font-semibold focus:outline-none transition-all duration-200"
+    >
+      <option value="all">Все статусы</option>
+      <option value="fresh">Свежие товары</option>
+      <option value="expiring_soon">Истекающие сроки</option>
+      <option value="expired">Просроченные</option>
+      <option value="marked_down">Уцененные</option>
+      <option value="written_off">Списанные</option>
+      <option value="long_term">📦 Длительное хранение</option>
+    </select>
+
+    <label className="flex items-center space-x-2 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs font-semibold text-gray-700 dark:text-slate-300 cursor-pointer select-none hover:bg-gray-100 dark:hover:bg-slate-750 transition-all">
+      <input
+        type="checkbox"
+        checked={hideWrittenOff}
+        onChange={(e) => setHideWrittenOff(e.target.checked)}
+        className="w-4 h-4 text-green-600 focus:ring-green-500 border-gray-300 rounded cursor-pointer"
+      />
+      <span>Скрыть списанные</span>
+    </label>
+
+    {/* ← КНОПКА ИМПОРТА */}
+    <button
+      onClick={() => setShowImportModal(true)}
+      className="flex items-center space-x-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-98"
+    >
+      <FileSpreadsheet className="w-4 h-4" />
+      <span>Импорт из Excel</span>
+    </button>
+
+    <button
+      onClick={() => setShowAddModal(true)}
+      className="flex items-center space-x-1.5 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-98"
+    >
+      <Plus className="w-4 h-4" />
+      <span>Добавить товар</span>
+    </button>
+  </div>
+  {showImportModal && (
+  <ImportProducts
+    onImportComplete={async () => {
+      await onDataChange();
+      setShowImportModal(false);
+    }}
+    onClose={() => setShowImportModal(false)}
+  />
+)}
+</div>
 
           <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-xl shadow-xs overflow-x-auto transition-colors duration-200">
             <table className="w-full text-left text-xs border-collapse">

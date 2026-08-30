@@ -24,7 +24,8 @@
     "react": "^19.0.1",
     "react-calendar": "^6.0.1",
     "react-dom": "^19.0.1",
-    "vite": "^6.2.3"
+    "vite": "^6.2.3",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
@@ -32,6 +33,7 @@
     "@types/node": "^22.14.0",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
+    "@types/xlsx": "^0.0.35",
     "autoprefixer": "^10.4.21",
     "bcryptjs": "^3.0.3",
     "esbuild": "^0.25.0",
