@@ -230,7 +230,43 @@ const todayStr = getLocalTodayStr();
 // Директор может войти в любой день
 const isDirector = employee.role_id === 'role_dir';
 
+if (!isDirector) {
+  // Получаем сегодняшнюю дату
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+  const todayStr = `${year}-${month}-${day}`;
+  
+  console.log('📅 Сегодня:', todayStr);
+  console.log('👤 Сотрудник:', employee.name);
+  
+  // Проверяем расписание на сегодня
+  const { data: schedule, error: scheduleError } = await supabase
+    .from('employee_schedules')
+    .select('*')
+    .eq('employee_id', employee.id)
+    .eq('schedule_date', todayStr)
+    .maybeSingle();
 
+  if (scheduleError) {
+    console.error('❌ Ошибка проверки расписания:', scheduleError);
+  }
+
+  console.log('📋 Найденное расписание:', schedule);
+
+  // Если расписание найдено и статус "Выходной" - блокируем вход
+  if (schedule && schedule.status === 'Выходной') {
+    setError(`❌ Сегодня (${todayStr}) у вас выходной! Обратитесь к администратору.`);
+    setIsLoading(false);
+    return;
+  }
+  
+  // Если расписание не найдено - разрешаем вход (по умолчанию)
+  if (!schedule) {
+    console.log('⚠️ Расписание не найдено, разрешаем вход');
+  }
+}
       // ✅ Успешный вход — сбрасываем счётчик
       setLoginAttempts(0);
       localStorage.removeItem('maria_ra_blocked_until');
