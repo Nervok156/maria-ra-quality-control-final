@@ -57,7 +57,8 @@ export const initialShelfLocations = [
   { id: 'shelf_2', zone_code: 'COLD-MEAT-02', description: 'Холодильная витрина колбас и мяса', temp_regime: '+0..+4 °C' },
   { id: 'shelf_3', zone_code: 'DRY-BAKERY-01', description: 'Полки хлебобулочных изделий', temp_regime: 'комнатная' },
   { id: 'shelf_4', zone_code: 'DRY-GROCERY-01', description: 'Стеллажи бакалеи', temp_regime: 'комнатная' },
-  { id: 'shelf_5', zone_code: 'DRY-SWEETS-02', description: 'Стеллаж кондитерской продукции', temp_regime: 'комнатная' }
+  { id: 'shelf_5', zone_code: 'DRY-SWEETS-02', description: 'Стеллаж кондитерской продукции', temp_regime: 'комнатная' },
+  { id: 'shelf_6', zone_code: 'DRY-OTHER-01', description: 'Стеллаж прочих товаров (хозяйственные товары, сезонные товары)', temp_regime: 'комнатная' }
 ];
 
 export const getInitialSchedules = () => [
