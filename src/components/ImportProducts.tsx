@@ -71,7 +71,6 @@ export default function ImportProducts({ onImportComplete, onClose }: ImportProd
     return value;
   };
 
-  // ✅ Обновлённый шаблон с правильными заголовками
   const downloadTemplate = () => {
     const headers = [
       'Штрихкод (обязательно)',
@@ -95,7 +94,6 @@ export default function ImportProducts({ onImportComplete, onClose }: ImportProd
     XLSX.writeFile(wb, 'шаблон_импорта_товаров.xlsx');
   };
 
-  // ✅ Обновлённый парсинг с правильными названиями колонок
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (!selectedFile) return;
@@ -205,7 +203,7 @@ export default function ImportProducts({ onImportComplete, onClose }: ImportProd
     reader.readAsArrayBuffer(selectedFile);
   };
 
-  // Импорт данных
+  // ✅ ОБНОВЛЁННАЯ ФУНКЦИЯ ИМПОРТА
   const handleImport = async () => {
     if (previewData.length === 0) {
       setStatus('error');
@@ -223,10 +221,37 @@ export default function ImportProducts({ onImportComplete, onClose }: ImportProd
     let skippedCount = 0;
     const errors: string[] = [];
 
+    // ✅ Получаем список категорий из базы данных
+    const { data: categories, error: categoriesError } = await supabase
+      .from('categories')
+      .select('id, name');
+
+    if (categoriesError) {
+      console.error('❌ Ошибка получения категорий:', categoriesError);
+      setStatus('error');
+      setMessage('Ошибка получения категорий из базы данных');
+      setImporting(false);
+      return;
+    }
+
+    // ✅ Создаём карту соответствия названия категории -> ID
+    const categoryMap: Record<string, string> = {};
+    categories?.forEach((cat: any) => {
+      categoryMap[cat.name] = cat.id;
+    });
+
+    console.log('📋 Карта категорий:', categoryMap);
+
     for (let i = 0; i < previewData.length; i++) {
       const row = previewData[i];
       try {
         setProgress(((i + 1) / previewData.length) * 100);
+
+        // ✅ Получаем правильный ID категории
+        const categoryId = categoryMap[row.category];
+        if (!categoryId) {
+          throw new Error(`Категория "${row.category}" не найдена в базе данных`);
+        }
 
         const { data: existingProducts, error: searchError } = await supabase
           .from('products')
@@ -245,10 +270,11 @@ export default function ImportProducts({ onImportComplete, onClose }: ImportProd
           skippedCount++;
           console.log(`📦 Товар "${row.name}" уже существует, добавляем только партию`);
         } else {
+          // ✅ Создаём товар с правильным category_id
           const product = await createProduct({
             barcode: row.barcode,
             name: row.name,
-            category_id: row.category,
+            category_id: categoryId,
             base_price: row.price,
             shelf_life_days: 7
           });
