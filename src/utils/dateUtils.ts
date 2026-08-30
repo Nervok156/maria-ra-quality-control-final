@@ -37,29 +37,35 @@ export const formatLocalTime = (dateString: string): string => {
   });
 };
 
-// ✅ ИСПРАВЛЕННАЯ: Получение текущей даты в локальном часовом поясе
+// ✅ ИСПРАВЛЕННАЯ: Получение текущей даты с учётом часового пояса
 export const getTodayISOString = (): string => {
   const now = new Date();
-  // Получаем локальную дату в формате YYYY-MM-DD
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
+  // Используем локальное время с учётом часового пояса
+  const localDate = new Date(now.toLocaleString('en-US', { timeZone: TIMEZONE }));
+  const year = localDate.getFullYear();
+  const month = String(localDate.getMonth() + 1).padStart(2, '0');
+  const day = String(localDate.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 };
 
-// ✅ ИСПРАВЛЕННАЯ: Получение текущего времени в локальном часовом поясе
+// Получение текущего времени в формате ISO с часовым поясом
 export const getNowISOString = (): string => {
   const now = new Date();
-  // Используем локальное время для создания ISO строки
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  const hours = String(now.getHours()).padStart(2, '0');
-  const minutes = String(now.getMinutes()).padStart(2, '0');
-  const seconds = String(now.getSeconds()).padStart(2, '0');
-  const milliseconds = String(now.getMilliseconds()).padStart(3, '0');
+  const offset = -now.getTimezoneOffset();
+  const offsetHours = String(Math.floor(Math.abs(offset) / 60)).padStart(2, '0');
+  const offsetMinutes = String(Math.abs(offset) % 60).padStart(2, '0');
+  const offsetSign = offset >= 0 ? '+' : '-';
   
-  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${milliseconds}+07:00`;
+  // Используем локальное время с учётом часового пояса
+  const localDate = new Date(now.toLocaleString('en-US', { timeZone: TIMEZONE }));
+  const year = localDate.getFullYear();
+  const month = String(localDate.getMonth() + 1).padStart(2, '0');
+  const day = String(localDate.getDate()).padStart(2, '0');
+  const hours = String(localDate.getHours()).padStart(2, '0');
+  const minutes = String(localDate.getMinutes()).padStart(2, '0');
+  const seconds = String(localDate.getSeconds()).padStart(2, '0');
+  
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.000${offsetSign}${offsetHours}:${offsetMinutes}`;
 };
 
 // Получение текущей даты для отображения
