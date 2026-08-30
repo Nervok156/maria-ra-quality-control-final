@@ -203,6 +203,27 @@ export default function ImportProducts({ onImportComplete, onClose }: ImportProd
     reader.readAsArrayBuffer(selectedFile);
   };
 
+  // ✅ Функция получения ID категории
+  const getCategoryId = (categoryName: string, categories: any[]): string | null => {
+    // Маппинг названий из Excel -> названия в базе данных
+    const categoryMapping: Record<string, string> = {
+      'dairy': 'dairy',
+      'bakery': 'bakery',
+      'meat_sausage': 'meat_sausage',
+      'grocery': 'grocery',
+      'beverages': 'beverages',
+      'confectionery': 'confectionery',
+      'other': 'other'
+    };
+
+    const mappedName = categoryMapping[categoryName] || categoryName;
+    const category = categories.find(c => c.name === mappedName);
+    
+    console.log(`🔍 Ищем категорию: ${categoryName} -> ${mappedName} -> ${category?.id || 'не найдено'}`);
+    
+    return category?.id || null;
+  };
+
   // ✅ ОБНОВЛЁННАЯ ФУНКЦИЯ ИМПОРТА
   const handleImport = async () => {
     if (previewData.length === 0) {
@@ -224,7 +245,7 @@ export default function ImportProducts({ onImportComplete, onClose }: ImportProd
     // ✅ Получаем список категорий из базы данных
     const { data: categories, error: categoriesError } = await supabase
       .from('categories')
-      .select('id, name');
+      .select('*');
 
     if (categoriesError) {
       console.error('❌ Ошибка получения категорий:', categoriesError);
@@ -234,13 +255,7 @@ export default function ImportProducts({ onImportComplete, onClose }: ImportProd
       return;
     }
 
-    // ✅ Создаём карту соответствия названия категории -> ID
-    const categoryMap: Record<string, string> = {};
-    categories?.forEach((cat: any) => {
-      categoryMap[cat.name] = cat.id;
-    });
-
-    console.log('📋 Карта категорий:', categoryMap);
+    console.log('📋 Категории из БД:', categories);
 
     for (let i = 0; i < previewData.length; i++) {
       const row = previewData[i];
@@ -248,10 +263,12 @@ export default function ImportProducts({ onImportComplete, onClose }: ImportProd
         setProgress(((i + 1) / previewData.length) * 100);
 
         // ✅ Получаем правильный ID категории
-        const categoryId = categoryMap[row.category];
+        const categoryId = getCategoryId(row.category, categories || []);
         if (!categoryId) {
           throw new Error(`Категория "${row.category}" не найдена в базе данных`);
         }
+
+        console.log(`📦 Обработка товара: ${row.name}, категория: ${row.category} -> ID: ${categoryId}`);
 
         const { data: existingProducts, error: searchError } = await supabase
           .from('products')
@@ -284,6 +301,7 @@ export default function ImportProducts({ onImportComplete, onClose }: ImportProd
           }
           productId = product.id;
           successCount++;
+          console.log(`✅ Создан новый товар: ${row.name} с категорией ${row.category}`);
         }
 
         await createBatch({
