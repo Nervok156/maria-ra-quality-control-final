@@ -39,14 +39,11 @@ const [showUtilizationModal, setShowUtilizationModal] = useState(false);
     try {
       setLoading(true);
       setError(null);
-      console.log('📥 Загружаем данные из Supabase...');
       
       const activeProducts = await getActiveProducts();
-      console.log('✅ Получено товаров:', activeProducts.length);
       
       setProducts(activeProducts);
     } catch (error) {
-      console.error('❌ Ошибка загрузки данных:', error);
       setError('Не удалось загрузить данные. Проверьте подключение к интернету и перезагрузите страницу.');
     } finally {
       setLoading(false);

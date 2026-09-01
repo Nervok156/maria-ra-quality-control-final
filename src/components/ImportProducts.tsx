@@ -110,7 +110,6 @@ export default function ImportProducts({ onImportComplete, onClose }: ImportProd
         const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
         const jsonData = XLSX.utils.sheet_to_json(firstSheet);
 
-        console.log('📋 Заголовки из файла:', Object.keys(jsonData[0] || {}));
 
         const parsedData: ImportRow[] = [];
         const errors: string[] = [];
@@ -193,7 +192,6 @@ export default function ImportProducts({ onImportComplete, onClose }: ImportProd
         setStatus('idle');
         setMessage(`Загружено ${parsedData.length} товаров для импорта`);
       } catch (error) {
-        console.error('❌ Ошибка парсинга файла:', error);
         setStatus('error');
         setMessage('Ошибка при чтении файла. Убедитесь, что файл имеет правильный формат.');
         setPreviewData([]);
@@ -271,14 +269,12 @@ export default function ImportProducts({ onImportComplete, onClose }: ImportProd
       .select('*');
 
     if (categoriesError) {
-      console.error('❌ Ошибка получения категорий:', categoriesError);
       setStatus('error');
       setMessage('Ошибка получения категорий из базы данных');
       setImporting(false);
       return;
     }
 
-    console.log('📋 Категории из БД:', categories);
 
     for (let i = 0; i < previewData.length; i++) {
       const row = previewData[i];
@@ -290,7 +286,6 @@ export default function ImportProducts({ onImportComplete, onClose }: ImportProd
           throw new Error(`Категория "${row.category}" не найдена в базе данных`);
         }
 
-        console.log(`📦 Обработка товара: ${row.name}, категория: ${row.category} -> ID: ${categoryId}`);
 
         const { data: existingProducts, error: searchError } = await supabase
           .from('products')
@@ -309,7 +304,6 @@ export default function ImportProducts({ onImportComplete, onClose }: ImportProd
           
           // ✅ Если категория изменилась, обновляем товар
           if (existingProducts.category_id !== categoryId) {
-            console.log(`🔄 Обновляем категорию товара "${row.name}": ${existingProducts.category_id} -> ${categoryId}`);
             
             const { error: updateError } = await supabase
               .from('products')
@@ -324,7 +318,6 @@ export default function ImportProducts({ onImportComplete, onClose }: ImportProd
             skippedCount++;
           }
           
-          console.log(`📦 Товар "${row.name}" уже существует, добавляем только партию`);
         } else {
           const product = await createProduct({
             barcode: row.barcode,
@@ -339,7 +332,6 @@ export default function ImportProducts({ onImportComplete, onClose }: ImportProd
           }
           productId = product.id;
           successCount++;
-          console.log(`✅ Создан новый товар: ${row.name} с категорией ${row.category}`);
         }
 
         await createBatch({
@@ -354,7 +346,6 @@ export default function ImportProducts({ onImportComplete, onClose }: ImportProd
       } catch (error) {
         errorCount++;
         errors.push(`Строка ${i + 1} (${row.name}): ${(error as Error).message}`);
-        console.error(`❌ Ошибка импорта строки ${i + 1}:`, error);
       }
     }
 

@@ -234,7 +234,6 @@ if (!isDirector) {
     .maybeSingle();
 
   if (scheduleError) {
-    console.error('❌ Ошибка проверки расписания:', scheduleError);
   }
 
   // Если расписание не найдено или статус "Выходной"
@@ -258,7 +257,6 @@ if (!isDirector) {
 
       onLogin(uiEmp);
     } catch (error) {
-      console.error('❌ Ошибка при входе:', error);
       setError('Произошла ошибка при входе. Попробуйте позже.');
     } finally {
       setIsLoading(false);

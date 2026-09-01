@@ -143,13 +143,10 @@ const calculateStatusAndPercent = (expiryDateStr: string, manufactureDateStr?: s
         .order('id');
       
       if (error) {
-        console.error('❌ Ошибка загрузки стеллажей:', error);
         return;
       }
       setShelfLocations(data || []);
-      console.log('✅ Загружено стеллажей:', data?.length);
     } catch (error) {
-      console.error('❌ Ошибка загрузки стеллажей:', error);
     }
   };
 
@@ -231,7 +228,6 @@ const calculateStatusAndPercent = (expiryDateStr: string, manufactureDateStr?: s
       .eq('barcode', trimmedBarcode);
 
     if (searchError) {
-      console.error('❌ Ошибка поиска товара:', searchError);
       throw searchError;
     }
 
@@ -285,7 +281,6 @@ const calculateStatusAndPercent = (expiryDateStr: string, manufactureDateStr?: s
     });
     
   } catch (error) {
-    console.error('❌ Ошибка при создании товара:', error);
     alert('Не удалось создать товар. Проверьте подключение к базе данных.');
   }
 };
@@ -295,7 +290,6 @@ const calculateStatusAndPercent = (expiryDateStr: string, manufactureDateStr?: s
   // ==========================================================
   const applyMarkdown = async () => {
     if (!selectedProduct) {
-      console.warn('Нет выбранного товара');
       return;
     }
     
@@ -312,7 +306,6 @@ const calculateStatusAndPercent = (expiryDateStr: string, manufactureDateStr?: s
     }
     
     try {
-      console.log('🔄 Применяем уценку...');
       
       await createMarkdown({
         batch_id: selectedProduct.id,
@@ -334,9 +327,7 @@ const calculateStatusAndPercent = (expiryDateStr: string, manufactureDateStr?: s
       setShowMarkdownModal(false);
       setSelectedProduct(null);
       
-      console.log('✅ Уценка применена успешно');
     } catch (error) {
-      console.error('❌ Ошибка при уценке:', error);
       alert('Не удалось применить уценку.');
     }
   };
@@ -348,7 +339,6 @@ const calculateStatusAndPercent = (expiryDateStr: string, manufactureDateStr?: s
     if (!selectedProduct) return;
     
     try {
-      console.log('🔄 Начинаем списание товара:', selectedProduct.id);
       
       const { data: batchData, error: batchError } = await supabase
         .from('batches')
@@ -357,13 +347,11 @@ const calculateStatusAndPercent = (expiryDateStr: string, manufactureDateStr?: s
         .single();
       
       if (batchError || !batchData) {
-        console.error('❌ Ошибка поиска товара для партии:', batchError);
         alert('Не удалось найти товар для этой партии');
         return;
       }
 
       const productId = batchData.product_id;
-      console.log('📦 Найден product_id:', productId);
 
       const act = await createWriteoffAct({
         act_number: `АКТ-ТОРГ16-00${Date.now().toString().slice(-5)}`,
@@ -376,7 +364,6 @@ const calculateStatusAndPercent = (expiryDateStr: string, manufactureDateStr?: s
       if (!act) {
         throw new Error('Не удалось создать акт списания');
       }
-      console.log('✅ Создан акт:', act.id);
       
       await createWriteoffItems([{
         act_id: act.id,
@@ -385,7 +372,6 @@ const calculateStatusAndPercent = (expiryDateStr: string, manufactureDateStr?: s
         reason: writeOffReason,
         unit_price: selectedProduct.price
       }]);
-      console.log('✅ Созданы строки списания');
       
       const { error: updateError } = await supabase
         .from('batches')
@@ -396,11 +382,9 @@ const calculateStatusAndPercent = (expiryDateStr: string, manufactureDateStr?: s
         .eq('id', selectedProduct.id);
       
       if (updateError) {
-        console.error('❌ Ошибка обновления партии:', updateError);
         alert('Ошибка при обновлении партии: ' + updateError.message);
         return;
       }
-      console.log('✅ Партия помечена как списанная');
       
       await addTelemetry({
         employee_id: currentUser?.id || '1',
@@ -415,7 +399,6 @@ const calculateStatusAndPercent = (expiryDateStr: string, manufactureDateStr?: s
       
       alert('✅ Товар успешно списан! Акт ТОРГ-16 создан.');
     } catch (error) {
-      console.error('❌ Ошибка при списании:', error);
       alert('Не удалось списать товар: ' + (error as any).message);
     }
   };

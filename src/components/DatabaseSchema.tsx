@@ -335,7 +335,6 @@ export default function DatabaseSchema() {
         categories: categories.data || []
       });
     } catch (error) {
-      console.error('❌ Ошибка загрузки данных из Supabase:', error);
     } finally {
       setLoading(false);
     }
@@ -374,7 +373,6 @@ export default function DatabaseSchema() {
         .eq('id', rowId);
       
       if (error) {
-        console.error('❌ Ошибка удаления:', error);
         alert('Ошибка при удалении записи');
         return;
       }
@@ -391,7 +389,6 @@ export default function DatabaseSchema() {
       addTelemetry('2', 'DELETE_RECORD_DATABASE', { table: tableKey, record_id: rowId });
       window.dispatchEvent(new Event('maria_ra_db_updated'));
     } catch (error) {
-      console.error('❌ Ошибка удаления:', error);
       alert('Ошибка при удалении записи');
     }
   };
@@ -437,7 +434,6 @@ export default function DatabaseSchema() {
         .insert([newRowData]);
       
       if (error) {
-        console.error('❌ Ошибка вставки:', error);
         alert('Ошибка при добавлении записи');
         return;
       }
@@ -453,7 +449,6 @@ export default function DatabaseSchema() {
       setShowAddModal(false);
       window.dispatchEvent(new Event('maria_ra_db_updated'));
     } catch (error) {
-      console.error('❌ Ошибка вставки:', error);
       alert('Ошибка при добавлении записи');
     }
   };

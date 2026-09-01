@@ -89,7 +89,6 @@ const isPastDate = (date: Date) => {
 };
   const loadDataFromSupabase = async () => {
     try {
-      console.log('📥 Загружаем финансовые данные из Supabase...');
       
       const [
         products,
@@ -147,20 +146,15 @@ const isPastDate = (date: Date) => {
         categories: []
       });
       
-      console.log('✅ Финансовые данные загружены');
     } catch (error) {
-      console.error('❌ Ошибка загрузки данных из Supabase:', error);
     }
   };
 
   const loadSchedules = async (date: Date) => {
   try {
-    console.log('📥 Загружаем расписание на', date.toLocaleDateString('ru-RU'));
     const data = await getSchedulesByDate(date);
     setSchedules(data);
-    console.log('✅ Загружено записей:', data.length);
   } catch (error) {
-    console.error('❌ Ошибка загрузки расписания:', error);
   }
 };
 
@@ -191,7 +185,6 @@ const handleDateChange = (value: any) => {
     const newDate = new Date(value);
     newDate.setHours(0, 0, 0, 0);
     
-    console.log('📅 Выбрана дата:', newDate.toLocaleDateString('ru-RU'));
     
     // Устанавливаем выбранную дату
     setSelectedDate(newDate);
@@ -760,7 +753,6 @@ useEffect(() => {
     if (result) {
       await loadSchedules(selectedDate);
       await triggerUpdate();
-      console.log('✅ Расписание обновлено на', selectedDate.toLocaleDateString('ru-RU'));
     }
   }}
   disabled={isPastDate(selectedDate)}

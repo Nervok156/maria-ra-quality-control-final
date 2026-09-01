@@ -126,7 +126,6 @@ export default function CashierWorkspace({ currentUser, onDataChange }: CashierW
         await loadShiftReceipts(shift.id);
       }
     } catch (error) {
-      console.error('❌ Ошибка загрузки смены:', error);
     }
   };
 
@@ -151,7 +150,6 @@ export default function CashierWorkspace({ currentUser, onDataChange }: CashierW
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('❌ Ошибка получения чеков смены:', error);
         return;
       }
 
@@ -162,9 +160,7 @@ export default function CashierWorkspace({ currentUser, onDataChange }: CashierW
       const totalReceipts = salesReceipts.length;
       const totalRevenue = receipts?.reduce((sum, r) => sum + (r.total_amount || 0), 0) || 0;
 
-      console.log(`📊 Чеков за смену: ${totalReceipts}, Выручка: ${totalRevenue.toFixed(2)} ₽`);
     } catch (error) {
-      console.error('❌ Ошибка загрузки чеков смены:', error);
     }
   };
 
@@ -179,7 +175,6 @@ export default function CashierWorkspace({ currentUser, onDataChange }: CashierW
       setSuccessMessage('Смена успешно начата!');
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (error) {
-      console.error('❌ Ошибка начала смены:', error);
       setError((error as any).message || 'Ошибка начала смены');
       setTimeout(() => setError(null), 3000);
     } finally {
@@ -199,7 +194,6 @@ export default function CashierWorkspace({ currentUser, onDataChange }: CashierW
       setSuccessMessage('Смена успешно закрыта!');
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (error) {
-      console.error('❌ Ошибка закрытия смены:', error);
       setError((error as any).message || 'Ошибка закрытия смены');
       setTimeout(() => setError(null), 3000);
     } finally {
@@ -231,7 +225,6 @@ export default function CashierWorkspace({ currentUser, onDataChange }: CashierW
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('❌ Ошибка загрузки чеков:', error);
         return;
       }
 
@@ -240,7 +233,6 @@ export default function CashierWorkspace({ currentUser, onDataChange }: CashierW
       const filtered = filterReceiptsByPeriod(data || [], period);
       setReceipts(filtered);
     } catch (error) {
-      console.error('❌ Ошибка загрузки чеков:', error);
     }
   };
 
@@ -315,7 +307,6 @@ export default function CashierWorkspace({ currentUser, onDataChange }: CashierW
       const results = await searchProductsForSale(searchTerm);
       setSearchResults(results || []);
     } catch (error) {
-      console.error('❌ Ошибка поиска:', error);
       setError('Ошибка поиска товаров');
       setTimeout(() => setError(null), 3000);
     } finally {
@@ -335,7 +326,6 @@ export default function CashierWorkspace({ currentUser, onDataChange }: CashierW
     }
 
     try {
-      console.log('🔄 Добавляем товар:', product.name);
 
       if (!product.id) {
         setError('Ошибка: у товара нет ID');
@@ -347,7 +337,6 @@ export default function CashierWorkspace({ currentUser, onDataChange }: CashierW
       try {
         batches = await getAvailableBatches(product.id);
       } catch (error) {
-        console.error('❌ Ошибка получения партий:', error);
         const activeProducts = await getActiveProducts();
         const foundProduct = activeProducts.find(p => p.id === product.id);
         if (foundProduct && foundProduct.quantity > 0) {
@@ -379,7 +368,6 @@ export default function CashierWorkspace({ currentUser, onDataChange }: CashierW
 
       if (!markdownError && markdowns && markdowns.length > 0) {
         unitPrice = markdowns[0].new_price;
-        console.log('🏷️ Найдена уценка, цена:', unitPrice);
       }
 
       const existingItem = cart.find(item => item.product.id === product.id && item.batchId === batch.id);
@@ -408,7 +396,6 @@ export default function CashierWorkspace({ currentUser, onDataChange }: CashierW
       setSuccessMessage('Товар добавлен в чек');
       setTimeout(() => setSuccessMessage(null), 2000);
     } catch (error) {
-      console.error('❌ Ошибка добавления товара:', error);
       setError('Ошибка добавления товара');
       setTimeout(() => setError(null), 3000);
     }
@@ -424,8 +411,6 @@ export default function CashierWorkspace({ currentUser, onDataChange }: CashierW
       return;
     }
 
-    console.log('🟢 handlePayment вызвана!');
-    console.log('📦 Корзина:', cart);
 
     if (cart.length === 0) {
       setError('Корзина пуста');
@@ -434,7 +419,6 @@ export default function CashierWorkspace({ currentUser, onDataChange }: CashierW
     }
 
     const total = getTotal();
-    console.log('💰 Итоговая сумма:', total);
 
     if (paymentMethod === 'cash' && paidAmount < total) {
       setError('Внесена недостаточная сумма');
@@ -444,10 +428,8 @@ export default function CashierWorkspace({ currentUser, onDataChange }: CashierW
 
     try {
       setLoading(true);
-      console.log('🔄 Начинаем оформление чека...');
 
       const receiptNumber = await getNextReceiptNumber('store_1');
-      console.log('📋 Номер чека:', receiptNumber);
 
       const receipt = await createReceipt({
         receipt_number: receiptNumber,
@@ -464,13 +446,11 @@ export default function CashierWorkspace({ currentUser, onDataChange }: CashierW
       if (!receipt) {
         throw new Error('Не удалось создать чек');
       }
-      console.log('✅ Чек создан:', receipt.id);
 
       const items = [];
       let saleSuccess = true;
 
       for (const item of cart) {
-        console.log(`🔄 Обрабатываем товар: ${item.product?.name}`);
 
         const { data: markdowns } = await supabase
           .from('markdown_log')
@@ -483,7 +463,6 @@ export default function CashierWorkspace({ currentUser, onDataChange }: CashierW
           ? markdowns[0].new_price
           : item.unitPrice;
 
-        console.log(`💰 Цена: ${actualPrice}, Кол-во: ${item.quantity}`);
 
         items.push({
           receipt_id: receipt.id,
@@ -494,7 +473,6 @@ export default function CashierWorkspace({ currentUser, onDataChange }: CashierW
           total_price: item.quantity * actualPrice
         });
 
-        console.log('🔄 Вызываем recordSaleInSupabase...');
         const success = await recordSaleInSupabase(
           item.product.id,
           item.quantity,
@@ -503,19 +481,15 @@ export default function CashierWorkspace({ currentUser, onDataChange }: CashierW
         );
 
         if (success) {
-          console.log('✅ Товар успешно списан');
         } else {
-          console.error('❌ Ошибка списания товара');
           saleSuccess = false;
         }
       }
 
       if (!saleSuccess) {
-        console.error('❌ Ошибка при списании товаров');
       }
 
       await createReceiptItems(items);
-      console.log('✅ Позиции чека созданы');
 
       // ✅ Обновляем все данные
       await loadReceipts();
@@ -529,7 +503,6 @@ export default function CashierWorkspace({ currentUser, onDataChange }: CashierW
       setTimeout(() => setSuccessMessage(null), 3000);
 
     } catch (error) {
-      console.error('❌ Ошибка оформления чека:', error);
       setError('Ошибка оформления чека');
       setTimeout(() => setError(null), 3000);
     } finally {
@@ -699,7 +672,6 @@ ${index + 1}. Чек №${receipt.receipt_number}${isReturn}
         setTimeout(() => setError(null), 3000);
       }
     } catch (error) {
-      console.error('❌ Ошибка поиска чеков:', error);
       setError('Ошибка поиска чеков');
       setTimeout(() => setError(null), 3000);
     } finally {
@@ -777,7 +749,6 @@ ${index + 1}. Чек №${receipt.receipt_number}${isReturn}
       setSearchReceiptTerm('');
 
     } catch (error) {
-      console.error('❌ Ошибка оформления возврата:', error);
       setError('Ошибка оформления возврата');
       setTimeout(() => setError(null), 3000);
     } finally {

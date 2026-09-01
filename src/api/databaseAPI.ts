@@ -113,7 +113,6 @@ export async function createProduct(product: any) {
     .select();
   
   if (error) {
-    console.error('❌ Ошибка создания товара:', error);
     throw error;
   }
   return data?.[0];
@@ -175,7 +174,6 @@ export async function createBatch(batch: any) {
     .select();
   
   if (error) {
-    console.error('❌ Ошибка создания партии:', error);
     throw error;
   }
   return data?.[0];
@@ -237,7 +235,6 @@ export async function createWriteoffAct(act: any) {
     .select();
   
   if (error) {
-    console.error('❌ Ошибка создания акта списания:', error);
     throw error;
   }
   return data?.[0];
@@ -290,7 +287,6 @@ export async function createWriteoffItems(items: any[]) {
     .select();
   
   if (error) {
-    console.error('❌ Ошибка создания строк списания:', error);
     throw error;
   }
   return data || [];
@@ -322,7 +318,6 @@ export async function createMarkdown(markdown: any) {
     .select();
   
   if (error) {
-    console.error('❌ Ошибка создания уценки:', error);
     throw error;
   }
   return data?.[0];
@@ -398,7 +393,6 @@ export async function getSalesLog() {
     .order('sold_at', { ascending: false });
   
   if (error) {
-    console.error('❌ Ошибка получения sales_log:', error);
     throw error;
   }
   return data || [];
@@ -418,7 +412,6 @@ export async function createSale(sale: any) {
     .select();
   
   if (error) {
-    console.error('❌ Ошибка создания продажи:', error);
     throw error;
   }
   return data?.[0];
@@ -449,7 +442,6 @@ export async function addTelemetry(telemetry: any) {
     .select();
   
   if (error) {
-    console.error('❌ Ошибка добавления телеметрии:', error);
     throw error;
   }
   return data?.[0];
@@ -591,7 +583,6 @@ export async function getActiveProducts() {
 
     return activeProducts;
   } catch (error) {
-    console.error('❌ Ошибка получения активных товаров:', error);
     throw error;
   }
 }
@@ -601,8 +592,6 @@ export async function getActiveProducts() {
 // ==========================================================
 export async function recordSaleInSupabase(productId: string, quantity: number, unitPrice: number, batchId: string) {
   try {
-    console.log('🔄 Записываем продажу в Supabase...');
-    console.log(`📦 Товар: ${productId}, Кол-во: ${quantity}, Цена: ${unitPrice}, Партия: ${batchId}`);
 
     const { data: batch, error: batchError } = await supabase
       .from('batches')
@@ -611,17 +600,14 @@ export async function recordSaleInSupabase(productId: string, quantity: number, 
       .maybeSingle();
     
     if (batchError) {
-      console.error('❌ Ошибка поиска партии:', batchError);
       return false;
     }
 
     if (!batch) {
-      console.error('❌ Партия не найдена:', batchId);
       return false;
     }
 
     if (batch.quantity < quantity) {
-      console.error(`❌ Недостаточно товара на полке: есть ${batch.quantity}, нужно ${quantity}`);
       return false;
     }
 
@@ -632,7 +618,6 @@ export async function recordSaleInSupabase(productId: string, quantity: number, 
       .eq('id', batchId);
     
     if (updateError) {
-      console.error('❌ Ошибка обновления партии:', updateError);
       return false;
     }
 
@@ -642,14 +627,12 @@ export async function recordSaleInSupabase(productId: string, quantity: number, 
         .from('batches')
         .update({ is_written_off: true })
         .eq('id', batchId);
-      console.log('📦 Партия полностью распродана, помечена как is_written_off = true');
     } else {
       // ✅ Если количество > 0, убеждаемся, что is_written_off = false
       await supabase
         .from('batches')
         .update({ is_written_off: false })
         .eq('id', batchId);
-      console.log(`📦 Партия имеет остаток ${newQuantity}, is_written_off = false`);
     }
 
     // Записываем продажу в sales_log
@@ -666,14 +649,11 @@ export async function recordSaleInSupabase(productId: string, quantity: number, 
       }]);
     
     if (saleError) {
-      console.error('❌ Ошибка записи продажи:', saleError);
       return false;
     }
 
-    console.log(`✅ Продажа записана: ${quantity} шт. на сумму ${totalSum.toFixed(2)} ₽`);
     return true;
   } catch (error) {
-    console.error('❌ Ошибка при записи продажи:', error);
     return false;
   }
 }
@@ -690,7 +670,6 @@ export async function getSchedulesByDate(date: Date) {
     .eq('schedule_date', dateStr);
   
   if (error) {
-    console.error('❌ Ошибка получения расписания:', error);
     throw error;
   }
   return data || [];
@@ -710,7 +689,6 @@ export async function getSchedulesForMonth(year: number, month: number) {
     .lte('schedule_date', endStr);
   
   if (error) {
-    console.error('❌ Ошибка получения расписания на месяц:', error);
     throw error;
   }
   return data || [];
@@ -733,7 +711,6 @@ export async function updateScheduleForDate(
     .maybeSingle();
   
   if (findError) {
-    console.error('❌ Ошибка поиска расписания:', findError);
     return null;
   }
   
@@ -749,7 +726,6 @@ export async function updateScheduleForDate(
       .select();
     
     if (error) {
-      console.error('❌ Ошибка обновления расписания:', error);
       return null;
     }
     return data?.[0];
@@ -767,7 +743,6 @@ export async function updateScheduleForDate(
       .select();
     
     if (error) {
-      console.error('❌ Ошибка создания расписания:', error);
       return null;
     }
     return data?.[0];
@@ -792,7 +767,6 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
 
 // Получение сотрудника с хешем пароля
 export async function getEmployeeWithPasswordHash(username: string) {
-  console.log('🔍 Ищем сотрудника с логином:', username);
   
   // Ищем по табельному номеру
   const { data, error } = await supabase
@@ -802,15 +776,12 @@ export async function getEmployeeWithPasswordHash(username: string) {
     .maybeSingle();
   
   if (error) {
-    console.error('❌ Ошибка поиска сотрудника:', error);
     return null;
   }
   
-  console.log('✅ Найден по personnel_number:', data);
   
   // Если не найден по табельному, ищем по имени (username)
   if (!data) {
-    console.log('🔍 Ищем по username:', username);
     const { data: byName, error: nameError } = await supabase
       .from('employees')
       .select('*')
@@ -818,10 +789,8 @@ export async function getEmployeeWithPasswordHash(username: string) {
       .maybeSingle();
     
     if (nameError) {
-      console.error('❌ Ошибка поиска сотрудника по имени:', nameError);
       return null;
     }
-    console.log('✅ Найден по username:', byName);
     return byName;
   }
   
@@ -852,7 +821,6 @@ export async function createReceipt(receipt: any) {
     .select();
   
   if (error) {
-    console.error('❌ Ошибка создания чека:', error);
     throw error;
   }
   return data?.[0];
@@ -879,7 +847,6 @@ export async function createReceiptItems(items: any[]) {
     .select();
   
   if (error) {
-    console.error('❌ Ошибка создания позиций чека:', error);
     throw error;
   }
   return data || [];
@@ -915,7 +882,6 @@ export async function getTodayReceipts(cashierId?: string) {
   const { data, error } = await query;
   
   if (error) {
-    console.error('❌ Ошибка получения чеков:', error);
     throw error;
   }
   return data || [];
@@ -941,7 +907,6 @@ export async function getReceiptById(receiptId: string) {
     .single();
   
   if (error) {
-    console.error('❌ Ошибка получения чека:', error);
     throw error;
   }
   return data;
@@ -957,7 +922,6 @@ export async function searchProductsForSale(searchTerm: string) {
     .limit(30);
   
   if (productsError) {
-    console.error('❌ Ошибка поиска товаров:', productsError);
     throw productsError;
   }
 
@@ -969,7 +933,6 @@ export async function searchProductsForSale(searchTerm: string) {
     .eq('is_written_off', false);
 
   if (batchesError) {
-    console.error('❌ Ошибка получения партий:', batchesError);
     throw batchesError;
   }
 
@@ -998,7 +961,6 @@ export async function getAvailableBatches(productId: string) {
     .order('expiration_date', { ascending: true });
   
   if (error) {
-    console.error('❌ Ошибка получения партий:', error);
     throw error;
   }
   return data || [];
@@ -1017,7 +979,6 @@ export async function getNextReceiptNumber(storeId: string = 'store_1') {
     .limit(1);
   
   if (error) {
-    console.error('❌ Ошибка получения номера чека:', error);
     return `${dateStr}-0001`;
   }
   
@@ -1056,7 +1017,6 @@ export async function searchReceiptsForReturn(searchTerm: string) {
     .limit(20);
   
   if (error) {
-    console.error('❌ Ошибка поиска чеков:', error);
     throw error;
   }
   return data || [];
@@ -1081,7 +1041,6 @@ export async function createReturnReceipt(
     .eq('is_return', true);
   
   if (checkError) {
-    console.error('❌ Ошибка проверки возврата:', checkError);
     throw new Error('Ошибка проверки возврата');
   }
   
@@ -1138,7 +1097,6 @@ export async function createReturnReceipt(
       .single();
     
     if (batchError) {
-      console.error('❌ Ошибка поиска партии:', batchError);
       continue;
     }
     
@@ -1159,7 +1117,6 @@ export async function createReturnReceipt(
       .eq('id', item.batch_id);
     
     if (updateError) {
-      console.error('❌ Ошибка обновления партии:', updateError);
     }
   }
   
@@ -1177,7 +1134,6 @@ export async function createReturnReceipt(
       }]);
     
     if (saleError) {
-      console.error('❌ Ошибка записи возврата в sales_log:', saleError);
     }
   }
   
@@ -1220,7 +1176,6 @@ export async function startShift(cashierId: string, storeId: string = 'store_1',
     .select();
 
   if (error) {
-    console.error('❌ Ошибка начала смены:', error);
     throw error;
   }
   return data?.[0];
@@ -1265,7 +1220,6 @@ export async function closeShift(cashierId: string, endCash: number) {
     .select();
 
   if (error) {
-    console.error('❌ Ошибка закрытия смены:', error);
     throw error;
   }
   return data?.[0];
@@ -1281,7 +1235,6 @@ export async function getActiveShift(cashierId: string) {
     .maybeSingle();
 
   if (error) {
-    console.error('❌ Ошибка получения активной смены:', error);
     return null;
   }
   return data;
@@ -1306,7 +1259,6 @@ export async function getReceiptsByShift(shiftId: string) {
     .order('created_at', { ascending: false });
   
   if (error) {
-    console.error('❌ Ошибка получения чеков смены:', error);
     throw error;
   }
   return data || [];

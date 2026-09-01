@@ -119,7 +119,6 @@ export const getDBState = (): DBTableData => {
       }
       return parsed;
     } catch (e) {
-      console.error("Ошибка парсинга БД", e);
     }
   }
 
@@ -346,7 +345,6 @@ export const approveActInDB = async (actId: string, directorId: string) => {
       .eq('id', actId);
     
     if (error) {
-      console.error('❌ Ошибка утверждения акта в Supabase:', error);
       return;
     }
     
@@ -359,9 +357,7 @@ export const approveActInDB = async (actId: string, directorId: string) => {
     }
     
     addTelemetry(directorId, 'APPROVE_WRITEOFF_ACT', { act_id: actId });
-    console.log('✅ Акт утвержден в Supabase');
   } catch (error) {
-    console.error('❌ Ошибка при утверждении акта:', error);
   }
 };
 
@@ -396,7 +392,6 @@ export const updateEmployeeScheduleInDB = async (director_id: string, employee_i
       .maybeSingle();
     
     if (findError) {
-      console.error('❌ Ошибка поиска расписания:', findError);
       return;
     }
     
@@ -408,9 +403,7 @@ export const updateEmployeeScheduleInDB = async (director_id: string, employee_i
         .eq('id', existing.id);
       
       if (updateError) {
-        console.error('❌ Ошибка обновления расписания:', updateError);
       } else {
-        console.log('✅ Расписание обновлено в Supabase');
       }
     } else {
       // Создаём новую запись в Supabase
@@ -425,9 +418,7 @@ export const updateEmployeeScheduleInDB = async (director_id: string, employee_i
         }]);
       
       if (insertError) {
-        console.error('❌ Ошибка создания расписания:', insertError);
       } else {
-        console.log('✅ Новое расписание создано в Supabase');
       }
     }
     
@@ -451,7 +442,6 @@ export const updateEmployeeScheduleInDB = async (director_id: string, employee_i
     const empName = state.employees.find(e => e.id === employee_id)?.name || employee_id;
     addTelemetry(director_id, 'UPDATE_SCHEDULE', { employee_id, employee_name: empName, day_type, shift_name, status });
   } catch (error) {
-    console.error('❌ Ошибка при обновлении расписания:', error);
   }
 };
 
